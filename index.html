@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Messenger - Kamal (Login & Signup)</title>
+    <title>Messenger - Kamal (Online)</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -36,7 +36,7 @@
         .profile-pic-container { 
             width: 80px; height: 80px; border-radius: 50%; background: #eef2ff; margin: 0 auto 10px; 
             display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative;
-            border: 3px solid #22c55e; box-shadow: 0 0 10px rgba(34, 197, 94, 0.6);
+            border: 3px solid #22c55e; box-shadow: 0 0 10px rgba(34, 197, 94, 0.6); cursor: pointer;
         }
         .profile-pic-container img { width: 100%; height: 100%; object-fit: cover; }
 
@@ -221,40 +221,47 @@
         async function verifyOtpCode() {
             const userOtp = document.getElementById('enteredOtp').value.trim();
             if(userOtp === generatedOtp) {
-                await db.collection("users").doc(pendingUserData.id).set(pendingUserData);
-                loginUser(pendingUserData.id);
-                alert('অ্যাকাউন্ট সফলভাবে ভেরিফাইড এবং তৈরি হয়েছে!');
+                try {
+                    await db.collection("users").doc(pendingUserData.id).set(pendingUserData);
+                    loginUser(pendingUserData.id);
+                    alert('অ্যাকাউন্ট সফলভাবে ভেরিফাইড এবং তৈরি হয়েছে!');
+                } catch(error) {
+                    alert('ডেটাবেস সেভ করতে সমস্যা হয়েছে: ' + error.message);
+                }
             } else {
                 alert('ভুল কোড দিয়েছেন! আবার চেষ্টা করুন।');
             }
         }
 
-        // লগইন করার প্রক্রিয়া
         async function handleLogin(event) {
             event.preventDefault();
             const contact = document.getElementById('loginContact').value.trim();
             const password = document.getElementById('loginPassword').value.trim();
 
-            let snapshot = await db.collection("users").where("contact", "==", contact).get();
-            if(snapshot.empty) {
-                alert('এই নম্বর বা ইমেলের কোনো অ্যাকাউন্ট পাওয়া যায়নি!');
-                return;
-            }
-
-            let userFound = false;
-            let userId = "";
-            snapshot.forEach(doc => {
-                let data = doc.data();
-                if(data.password === password) {
-                    userFound = true;
-                    userId = data.id;
+            try {
+                let snapshot = await db.collection("users").where("contact", "==", contact).get();
+                if(snapshot.empty) {
+                    alert('এই নম্বর বা ইমেলের কোনো অ্যাকাউন্ট পাওয়া যায়নি!');
+                    return;
                 }
-            });
 
-            if(userFound) {
-                loginUser(userId);
-            } else {
-                alert('ভুল পাসওয়ার্ড দেওয়া হয়েছে!');
+                let userFound = false;
+                let userId = "";
+                snapshot.forEach(doc => {
+                    let data = doc.data();
+                    if(data.password === password) {
+                        userFound = true;
+                        userId = data.id;
+                    }
+                });
+
+                if(userFound) {
+                    loginUser(userId);
+                } else {
+                    alert('ভুল পাসওয়ার্ড দেওয়া হয়েছে!');
+                }
+            } catch(error) {
+                alert('লগইন করতে সমস্যা হয়েছে: ' + error.message);
             }
         }
 
@@ -497,7 +504,7 @@
                 loadDashboard();
                 switchView('dashboardView');
             } else {
-                switchView('loginView'); // প্রথমবার আসলে লগইন স্ক্রিন দেখাবে
+                switchView('loginView');
             }
         }
     </script>
