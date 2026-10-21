@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Messenger - Kamal (Online & OTP)</title>
+    <title>Messenger - Kamal (Online & Timer OTP)</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -28,6 +28,7 @@
         .input-field input { width: 100%; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 13px; background-color: #f9fafb; outline: none; }
         .btn { width: 100%; padding: 11px; background-color: #1d4ed8; color: #ffffff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 8px; }
         .btn:hover { background-color: #1e40af; }
+        .btn:disabled { background-color: #9ca3af; cursor: not-allowed; }
         .btn-secondary { background-color: #4b5563; }
 
         /* Profile Pic & Online Glowing Green Border */
@@ -82,15 +83,24 @@
             </form>
         </div>
 
-        <!-- ২. ওটিপি ভেরিফিকেশন স্ক্রিন -->
+        <!-- ২. ওটিপি ভেরিফিকেশন ও টাইম কাউন্টডাউন স্ক্রিন -->
         <div id="otpView" class="view">
             <h2 style="text-align:center; margin-bottom: 15px; font-size:18px;">Verify Account</h2>
-            <p style="font-size: 12px; color: #666; text-align: center; margin-bottom: 15px;">আপনার ইমেল বা নম্বরে পাঠানো ৪ ডিজিটের ভেরিফিকেশন কোডটি দিন।<br><b id="sentOtpDisplay" style="color:#1d4ed8;"></b></p>
+            <p style="font-size: 12px; color: #666; text-align: center; margin-bottom: 10px;">আপনার ভেরিফিকেশন কোডটি নিচে দেওয়া হলো (স্ক্রিন কোড):</p>
+            <div id="codeDisplayBox" style="background: #eef2ff; padding: 10px; text-align: center; font-size: 20px; font-weight: bold; color: #1d4ed8; border-radius: 8px; margin-bottom: 15px;"></div>
+            
             <div class="input-group">
                 <label>Enter 4-Digit Code</label>
                 <div class="input-field"><input type="text" id="enteredOtp" placeholder="Enter code..." maxlength="4"></div>
             </div>
+            
             <button class="btn" onclick="verifyOtpCode()">Verify & Create Account</button>
+            
+            <!-- Timer and Resend Option -->
+            <div style="text-align: center; margin-top: 15px; font-size: 13px; color: #555;">
+                <span id="timerText">Resend code in <b id="countdown">60</b>s</span>
+                <button id="resendBtn" class="btn btn-secondary" style="display: none; margin-top: 5px;" onclick="resendOtpCode()">Resend Code</button>
+            </div>
         </div>
 
         <!-- ৩. ড্যাশবোর্ড স্ক্রিন -->
@@ -169,6 +179,7 @@
         let tempProfilePic = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
         let generatedOtp = "";
         let pendingUserData = {};
+        let countdownTimer = null;
 
         function previewImage(event) {
             const reader = new FileReader();
@@ -179,16 +190,12 @@
             reader.readAsDataURL(event.target.files[0]);
         }
 
-        // সাইন আপ সাবমিট করার পর ওটিপি কোড জেনারেট করা
         function handleSignup(event) {
             event.preventDefault();
             const name = document.getElementById('fullName').value;
             const contact = document.getElementById('contactInfo').value;
             const uniqueId = '#' + Math.floor(1000 + Math.random() * 9000);
 
-            // ৪ ডিজিটের র্যান্ডম ওটিপি কোড তৈরি (টেস্ট করার জন্য স্ক্রিনে শো করবে)
-            generatedOtp = Math.floor(1000 + Math.random() * 9000).toString();
-            
             pendingUserData = {
                 id: uniqueId,
                 name: name,
@@ -198,12 +205,37 @@
                 requests: []
             };
 
-            document.getElementById('sentOtpDisplayinnerText').innerText = '';
-            alert(`আপনার ভেরিফিকেশন কোডটি হলো: ${generatedOtp}`); // টেস্ট করার জন্য অ্যালার্টে কোডটি দেখানো হবে
+            sendNewOtp();
             switchView('otpView');
         }
 
-        // কোড যাচাই করে ফায়ারবেসে অ্যাকাউন্ট সেভ করা
+        // ওটিপি কোড জেনারেট এবং টাইম কাউন্টডাউন শুরু করা
+        function sendNewOtp() {
+            generatedOtp = Math.floor(1000 + Math.random() * 9000).toString();
+            document.getElementById('codeDisplayBox').innerText = generatedOtp; // স্ক্রিনে কোড দেখাবে (নম্বরে SMS না গেলে এখান থেকে নিয়ে বসাতে পারবেন)
+            
+            let timeLeft = 60;
+            document.getElementById('countdown').innerText = timeLeft;
+            document.getElementById('timerText').style.display = 'block';
+            document.getElementById('resendBtn').style.display = 'none';
+
+            clearInterval(countdownTimer);
+            countdownTimer = setInterval(() => {
+                timeLeft--;
+                document.getElementById('countdown').innerText = timeLeft;
+                if(timeLeft <= 0) {
+                    clearInterval(countdownTimer);
+                    document.getElementById('timerText').style.display = 'none';
+                    document.getElementById('resendBtn').style.display = 'block';
+                }
+            }, 1000);
+        }
+
+        function resendOtpCode() {
+            sendNewOtp();
+            alert('নতুন ভেরিফিকেশন কোড জেনারেট করা হয়েছে!');
+        }
+
         async function verifyOtpCode() {
             const userOtp = document.getElementById('enteredOtp').value.trim();
             if(userOtp === generatedOtp) {
@@ -392,7 +424,7 @@
                     container.innerHTML += `
                         <div class="user-card" onclick="openChat('${friend.id}')" style="cursor:pointer;">
                             <div class="user-info-sm"><div class="avatar-wrapper"><img src="${friend.avatar}" class="avatar-sm"></div><div><div style="font-size:13px; font-weight:600;">${friend.name}</div><div style="font-size:11px; color:#22c55e; font-weight:600;">Active Now</div></div></div>
-                            <i class="fa-solid fa-chevron-right" style="font-size:12px; color:#aaa;"></i>
+                            <i class="fa-solid fa-chevron-right" style="font-size:12px; color:#aaa;">x</i>
                         </div>`;
                 }
             }
