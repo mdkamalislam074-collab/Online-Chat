@@ -32,7 +32,6 @@
         .switch-text { text-align: center; font-size: 12px; color: #666; margin-top: 15px; cursor: pointer; }
         .switch-text span { color: #1d4ed8; font-weight: 600; }
 
-        /* Offline Red Alert Banner */
         #offlineBanner {
             display: none;
             background-color: #fee2e2;
@@ -46,7 +45,6 @@
             margin-bottom: 15px;
         }
 
-        /* Profile Pic & Online Glowing Green Border */
         .profile-pic-container { 
             width: 80px; height: 80px; border-radius: 50%; background: #eef2ff; margin: 0 auto 10px; 
             display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative;
@@ -82,7 +80,6 @@
             <div class="sub-name">Kamal</div>
         </div>
 
-        <!-- Warning offline -->
         <div id="offlineBanner">⚠️ ইন্টারনেটের সাথে সংযোগ নেই! দয়া করে মোবাইল ডাটা বা ওয়াইফাই চালু করুন।</div>
 
         <!-- 1. Signup View -->
@@ -186,7 +183,7 @@
         let currentUserId = localStorage.getItem('messenger_current_user_id') || null;
         let activeChatFriendId = null;
         let tempProfilePic = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
-        let unsubscribeMessages = null; // Dùng để hủy lắng nghe chat cũ khi chuyển phòng
+        let unsubscribeMessages = null;
 
         function checkOnlineStatus() {
             const banner = document.getElementById('offlineBanner');
@@ -213,12 +210,9 @@
             }
         }
 
+        // ইনস্ট্যান্ট একাউন্ট তৈরি ও ড্যাশবোর্ডে প্রবেশ
         async function handleSignup(event) {
             event.preventDefault();
-            if (!checkOnlineStatus()) {
-                alert('ইন্টারনেট সংযোগ না থাকায় অ্যাকাউন্ট তৈরি করা সম্ভব নয়!');
-                return;
-            }
 
             const name = document.getElementById('fullName').value.trim();
             const contact = document.getElementById('signupContact').value.trim();
@@ -235,22 +229,23 @@
                 requests: []
             };
 
+            // লোকাল স্টোরেজে ইনস্ট্যান্ট সেভ করে সাথে সাথে ড্যাশবোর্ডে নিয়ে যাবে (যাতে ফায়ারবেসের লোডিংয়ের জন্য আটকে না থাকে)
+            localStorage.setItem('messenger_current_user_id', uniqueId);
+            localStorage.setItem('messenger_user_data', JSON.stringify(userData));
+            currentUserId = uniqueId;
+            
+            switchView('dashboardView');
+
+            // ব্যাকগ্রাউন্ডে ফায়ারবেসে ডেটা সেভ করার চেষ্টা করবে
             try {
                 await db.collection("users").doc(uniqueId).set(userData);
-                loginUser(uniqueId);
-                alert('অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে!');
             } catch(error) {
-                alert('ডেটাবেস সেভ করতে সমস্যা হয়েছে: ' + error.message);
+                console.error("Background sync error: ", error);
             }
         }
 
         async function handleLogin(event) {
             event.preventDefault();
-            if (!checkOnlineStatus()) {
-                alert('ইন্টারনেট সংযোগ না থাকায় লগইন করা যাচ্ছে না!');
-                return;
-            }
-
             const contact = document.getElementById('loginContact').value.trim();
             const password = document.getElementById('loginPassword').value.trim();
 
@@ -289,6 +284,7 @@
 
         function logoutUser() {
             localStorage.removeItem('messenger_current_user_id');
+            localStorage.removeItem('messenger_user_data');
             currentUserId = null;
             if(unsubscribeMessages) unsubscribeMessages();
             switchView('loginView');
@@ -299,7 +295,7 @@
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             document.getElementById(viewId).classList.add('active');
             if(viewId === 'dashboardView') {
-                if(unsubscribeMessages) unsubscribeMessages(); // Ngừng lắng nghe chat cũ
+                if(unsubscribeMessages) unsubscribeMessages();
                 loadDashboard();
             }
         }
@@ -324,34 +320,43 @@
         }
 
         async function loadDashboard() {
-            if(!checkOnlineStatus()) return;
             if(!currentUserId) {
                 switchView('loginView');
                 return;
             }
+
+            // প্রথমে লোকাল ক্যাশ থেকে দ্রুত নাম ও ছবি দেখিয়ে দিবে
+            let localData = JSON.parse(localStorage.getItem('messenger_user_data'));
+            if(localData && localData.id === currentUserId) {
+                document.getElementById('myUserName').innerText = localData.name;
+                document.getElementById('myUserId').innerText = "ID: " + localData.id;
+                document.getElementById('myAvatarDisplay').src = localData.avatar;
+            }
+
+            // এরপর ফায়ারবেস থেকে লেটেস্ট ডাটা সিঙ্ক করে নিবে
             try {
                 let doc = await db.collection("users").doc(currentUserId).get();
-                if(!doc.exists) {
-                    logoutUser();
-                    return;
+                if(doc.exists) {
+                    let user = doc.data();
+                    document.getElementById('myUserName').innerText = user.name;
+                    document.getElementById('myUserId').innerText = "ID: " + user.id;
+                    document.getElementById('myAvatarDisplay').src = user.avatar;
+                    localStorage.setItem('messenger_user_data', JSON.stringify(user));
                 }
-                
-                let user = doc.data();
-                document.getElementById('myUserName').innerText = user.name;
-                document.getElementById('myUserId').innerText = "ID: " + user.id;
-                document.getElementById('myAvatarDisplay').src = user.avatar;
                 loadChatList();
             } catch(e) {
                 console.error("Dashboard load error:", e);
+                loadChatList();
             }
         }
 
         async function searchUser() {
-            if(!checkOnlineStatus()) return;
             let query = document.getElementById('searchInput').value.trim();
             let resultDiv = document.getElementById('searchResult');
             let userDoc = await db.collection("users").doc(currentUserId).get();
             let user = userDoc.data();
+
+            if(!user) return;
 
             if(query === user.id) {
                 resultDiv.innerHTML = `<p style="font-size:12px; color:red;">এটি আপনার নিজের আইডি!</p>`;
@@ -361,7 +366,7 @@
             let targetDoc = await db.collection("users").doc(query).get();
             if(targetDoc.exists) {
                 let found = targetDoc.data();
-                let isAlreadyFriend = user.friends.includes(found.id);
+                let isAlreadyFriend = user.friends && user.friends.includes(found.id);
                 let btnHtml = isAlreadyFriend ? `<span style="font-size:11px; color:green; font-weight:600;">Friends</span>` : `<button class="btn" style="width:auto; padding:4px 10px; font-size:11px;" onclick="sendFriendRequest('${found.id}')">Add Friend</button>`;
                 
                 resultDiv.innerHTML = `
@@ -378,11 +383,11 @@
         }
 
         async function sendFriendRequest(targetId) {
-            if(!checkOnlineStatus()) return;
             let targetRef = db.collection("users").doc(targetId);
             let targetDoc = await targetRef.get();
             if(targetDoc.exists) {
                 let targetData = targetDoc.data();
+                if(!targetData.requests) targetData.requests = [];
                 if(!targetData.requests.includes(currentUserId)) {
                     targetData.requests.push(currentUserId);
                     await targetRef.update({ requests: targetData.requests });
@@ -394,8 +399,8 @@
         }
 
         async function loadRequestsList() {
-            if(!checkOnlineStatus()) return;
             let userDoc = await db.collection("users").doc(currentUserId).get();
+            if(!userDoc.exists) return;
             let user = userDoc.data();
             let container = document.getElementById('tabRequests');
             container.innerHTML = '';
@@ -419,12 +424,12 @@
         }
 
         async function acceptRequest(senderId) {
-            if(!checkOnlineStatus()) return;
             let userRef = db.collection("users").doc(currentUserId);
             let userDoc = await userRef.get();
             let user = userDoc.data();
 
             user.requests = user.requests.filter(id => id !== senderId);
+            if(!user.friends) user.friends = [];
             user.friends.push(senderId);
             await userRef.update({ friends: user.friends, requests: user.requests });
 
@@ -432,6 +437,7 @@
             let senderDoc = await senderRef.get();
             if(senderDoc.exists) {
                 let sender = senderDoc.data();
+                if(!sender.friends) sender.friends = [];
                 if(!sender.friends.includes(currentUserId)) {
                     sender.friends.push(currentUserId);
                     await senderRef.update({ friends: sender.friends });
@@ -443,8 +449,8 @@
         }
 
         async function loadFriendsList() {
-            if(!checkOnlineStatus()) return;
             let userDoc = await db.collection("users").doc(currentUserId).get();
+            if(!userDoc.exists) return;
             let user = userDoc.data();
             let container = document.getElementById('tabFriends');
             container.innerHTML = '';
@@ -468,8 +474,8 @@
         }
 
         async function loadChatList() {
-            if(!checkOnlineStatus()) return;
             let userDoc = await db.collection("users").doc(currentUserId).get();
+            if(!userDoc.exists) return;
             let user = userDoc.data();
             let container = document.getElementById('tabChats');
             container.innerHTML = '';
@@ -493,7 +499,6 @@
         }
 
         async function openChat(friendId) {
-            if(!checkOnlineStatus()) return;
             activeChatFriendId = friendId;
             let friendDoc = await db.collection("users").doc(friendId).get();
             let friend = friendDoc.data();
@@ -504,7 +509,6 @@
         }
 
         function sendMessage() {
-            if(!checkOnlineStatus()) return;
             let input = document.getElementById('messageInput');
             let text = input.value.trim();
             if(!text) return;
@@ -527,7 +531,7 @@
         }
 
         function listenMessages() {
-            if(unsubscribeMessages) unsubscribeMessages(); // Hủy kết nối cũ tránh trùng lặp
+            if(unsubscribeMessages) unsubscribeMessages();
             let chatKey = [currentUserId, activeChatFriendId].sort().join('_');
             let chatBox = document.getElementById('chatBox');
 
