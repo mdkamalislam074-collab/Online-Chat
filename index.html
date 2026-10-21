@@ -104,7 +104,7 @@
         <!-- ১. সাইন আপ স্ক্রিন -->
         <div id="signupView" class="view active">
             <h2 style="text-align:center; margin-bottom: 15px; font-size:18px;">Create Account</h2>
-            <div onsubmit="handleSignup(event)">
+            <div>
                 <div class="profile-pic-container" onclick="document.getElementById('profilePicInput').click()">
                     <img id="previewImg" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="Profile">
                 </div>
@@ -196,8 +196,8 @@
             <h3 style="font-size: 15px; margin-bottom: 10px;">Settings & Accounts</h3>
             
             <div style="margin-bottom: 15px; background: #f3f4f6; padding: 10px; border-radius: 8px;">
-                <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; color: #374151;">Saved Accounts (একাধিক আইডি)</div>
-                <div id="savedAccountsList" style="display: flex; flex-direction: column; gap: 6px; max-height: 100px; overflow-y: auto;"></div>
+                <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; color: #374151;">Saved Accounts (একাধিক আইডি - মুছতেও পারবেন)</div>
+                <div id="savedAccountsList" style="display: flex; flex-direction: column; gap: 6px; max-height: 120px; overflow-y: auto;"></div>
             </div>
 
             <button class="btn btn-secondary" onclick="addNewAccount()" style="background-color: #059669; margin-bottom: 8px;"><i class="fa-solid fa-user-plus"></i> Add Another Account</button>
@@ -316,7 +316,21 @@
             }
         }
 
-        // বাটন ক্লিকের মাধ্যমে সরাসরি অ্যাকাউন্ট তৈরি (ফর্ম সাবমিট সমস্যা এড়াতে)
+        // অ্যাকাউন্ট লিস্ট থেকে নির্দিষ্ট আইডি ডিলিট করার ফাংশন
+        function removeSavedAccount(id, event) {
+            event.stopPropagation();
+            if(confirm('এই অ্যাকাউন্টটি কি তালিকা থেকে মুছে ফেলতে চান?')) {
+                let accounts = JSON.parse(localStorage.getItem('messenger_saved_accounts')) || [];
+                accounts = accounts.filter(acc => acc.id !== id);
+                localStorage.setItem('messenger_saved_accounts', JSON.stringify(accounts));
+                loadSavedAccountsList();
+                
+                if(currentUserId === id) {
+                    logoutUser();
+                }
+            }
+        }
+
         async function handleSignupBtn() {
             const name = document.getElementById('fullName').value.trim();
             const contact = document.getElementById('signupContact').value.trim();
@@ -446,7 +460,10 @@
                                 <div style="font-size: 9px; color: #666;">${acc.id}</div>
                             </div>
                         </div>
-                        ${isCurrent ? '<span style="font-size: 10px; color: #10b981; font-weight: 600;">Active</span>' : `<button class="btn" style="width: auto; margin:0; padding: 2px 6px; font-size: 10px;" onclick="switchToAccount('${acc.id}')">Switch</button>`}
+                        <div style="display: flex; gap: 5px; align-items: center;">
+                            ${isCurrent ? '<span style="font-size: 10px; color: #10b981; font-weight: 600;">Active</span>' : `<button class="btn" style="width: auto; margin:0; padding: 2px 6px; font-size: 10px;" onclick="switchToAccount('${acc.id}')">Switch</button>`}
+                            <button class="btn" style="width: auto; margin:0; padding: 2px 6px; font-size: 10px; background-color: #ef4444;" onclick="removeSavedAccount('${acc.id}', event)"><i class="fa-solid fa-trash"></i></button>
+                        </div>
                     </div>
                 `;
             });
