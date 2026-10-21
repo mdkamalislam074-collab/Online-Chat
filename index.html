@@ -82,10 +82,10 @@
             <div class="sub-name">Kamal</div>
         </div>
 
-        <!-- ইন্টারনেট না থাকলে লাল রঙের ওয়ার্নিং মেসেজ -->
+        <!-- Warning offline -->
         <div id="offlineBanner">⚠️ ইন্টারনেটের সাথে সংযোগ নেই! দয়া করে মোবাইল ডাটা বা ওয়াইফাই চালু করুন।</div>
 
-        <!-- ১. সাইন আপ স্ক্রিন -->
+        <!-- 1. Signup View -->
         <div id="signupView" class="view active">
             <h2 style="text-align:center; margin-bottom: 15px; font-size:18px;">Create Account</h2>
             <form onsubmit="handleSignup(event)">
@@ -102,7 +102,7 @@
             <div class="switch-text" onclick="switchView('loginView')">Already have an account? <span>Login here</span></div>
         </div>
 
-        <!-- ২. লগইন স্ক্রিন -->
+        <!-- 2. Login View -->
         <div id="loginView" class="view">
             <h2 style="text-align:center; margin-bottom: 15px; font-size:18px;">Login to Messenger</h2>
             <form onsubmit="handleLogin(event)">
@@ -113,7 +113,7 @@
             <div class="switch-text" onclick="switchView('signupView')">Don't have an account? <span>Create Account</span></div>
         </div>
 
-        <!-- ৩. ড্যাশবোর্ড স্ক্রিন -->
+        <!-- 3. Dashboard View -->
         <div id="dashboardView" class="view">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; background: #eef2ff; padding: 8px; border-radius: 8px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
@@ -127,10 +127,10 @@
             </div>
 
             <div class="nav-tabs">
-                <button class="nav-tab active" onclick="switchTab('chats')">Chats</button>
-                <button class="nav-tab" onclick="switchTab('friends')">Friends</button>
-                <button class="nav-tab" onclick="switchTab('requests')">Requests</button>
-                <button class="nav-tab" onclick="switchTab('search')">Search</button>
+                <button class="nav-tab active" onclick="switchTab('chats', this)">Chats</button>
+                <button class="nav-tab" onclick="switchTab('friends', this)">Friends</button>
+                <button class="nav-tab" onclick="switchTab('requests', this)">Requests</button>
+                <button class="nav-tab" onclick="switchTab('search', this)">Search</button>
             </div>
 
             <div id="tabChats" class="tab-content card-list"></div>
@@ -148,7 +148,7 @@
             </div>
         </div>
 
-        <!-- ৪. চ্যাট রুম স্ক্রিন -->
+        <!-- 4. Chat Room View -->
         <div id="chatRoomView" class="view">
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px;">
                 <button class="btn" style="width: auto; margin-top:0; padding: 5px 10px; background:#6b7280;" onclick="switchView('dashboardView')"><i class="fa-solid fa-arrow-left"></i></button>
@@ -157,12 +157,12 @@
             </div>
             <div class="chat-box" id="chatBox"></div>
             <div style="display: flex; gap: 5px;">
-                <input type="text" id="messageInput" placeholder="Type a message..." style="flex:1; padding: 10px; border:1px solid #ddd; border-radius: 8px; outline:none;">
+                <input type="text" id="messageInput" placeholder="Type a message..." style="flex:1; padding: 10px; border:1px solid #ddd; border-radius: 8px; outline:none;" onkeypress="handleKeyPress(event)">
                 <button class="btn" style="width: 70px; margin-top:0;" onclick="sendMessage()">Send</button>
             </div>
         </div>
 
-        <!-- ৫. সেটিংস স্ক্রিন -->
+        <!-- 5. Settings View -->
         <div id="settingsView" class="view">
             <h3 style="font-size: 15px; margin-bottom: 10px;">Settings & Accounts</h3>
             <button class="btn btn-secondary" onclick="logoutUser()" style="background-color: #ef4444; margin-bottom: 8px;">Logout</button>
@@ -186,8 +186,8 @@
         let currentUserId = localStorage.getItem('messenger_current_user_id') || null;
         let activeChatFriendId = null;
         let tempProfilePic = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
+        let unsubscribeMessages = null; // Dùng để hủy lắng nghe chat cũ khi chuyển phòng
 
-        // ইন্টারনেট কানেকশন চেক ফাংশন
         function checkOnlineStatus() {
             const banner = document.getElementById('offlineBanner');
             if (!navigator.onLine) {
@@ -208,10 +208,11 @@
                 tempProfilePic = reader.result;
                 document.getElementById('previewImg').src = tempProfilePic;
             }
-            reader.readAsDataURL(event.target.files[0]);
+            if(event.target.files[0]) {
+                reader.readAsDataURL(event.target.files[0]);
+            }
         }
 
-        // সরাসরি অ্যাকাউন্ট তৈরি করে ড্যাশবোর্ডে প্রবেশ
         async function handleSignup(event) {
             event.preventDefault();
             if (!checkOnlineStatus()) {
@@ -289,6 +290,7 @@
         function logoutUser() {
             localStorage.removeItem('messenger_current_user_id');
             currentUserId = null;
+            if(unsubscribeMessages) unsubscribeMessages();
             switchView('loginView');
         }
 
@@ -297,30 +299,28 @@
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             document.getElementById(viewId).classList.add('active');
             if(viewId === 'dashboardView') {
+                if(unsubscribeMessages) unsubscribeMessages(); // Ngừng lắng nghe chat cũ
                 loadDashboard();
             }
         }
 
-        function switchTab(tabName) {
+        function switchTab(tabName, element) {
             document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
             document.querySelectorAll('.nav-tab').forEach(n => n.classList.remove('active'));
             
             if(tabName === 'chats') {
                 document.getElementById('tabChats').style.display = 'flex';
-                event.target.classList.add('active');
                 loadChatList();
             } else if(tabName === 'friends') {
                 document.getElementById('tabFriends').style.display = 'flex';
-                event.target.classList.add('active');
                 loadFriendsList();
             } else if(tabName === 'requests') {
                 document.getElementById('tabRequests').style.display = 'flex';
-                event.target.classList.add('active');
                 loadRequestsList();
             } else if(tabName === 'search') {
                 document.getElementById('tabSearch').style.display = 'block';
-                event.target.classList.add('active');
             }
+            if(element) element.classList.add('active');
         }
 
         async function loadDashboard() {
@@ -387,6 +387,8 @@
                     targetData.requests.push(currentUserId);
                     await targetRef.update({ requests: targetData.requests });
                     alert('অনলাইনে ফ্রেন্ড রিকোয়েস্ট পাঠানো হয়েছে!');
+                } else {
+                    alert('ইতিমধ্যেই রিকোয়েস্ট পাঠানো হয়েছে!');
                 }
             }
         }
@@ -428,10 +430,12 @@
 
             let senderRef = db.collection("users").doc(senderId);
             let senderDoc = await senderRef.get();
-            let sender = senderDoc.data();
-            if(!sender.friends.includes(currentUserId)) {
-                sender.friends.push(currentUserId);
-                await senderRef.update({ friends: sender.friends });
+            if(senderDoc.exists) {
+                let sender = senderDoc.data();
+                if(!sender.friends.includes(currentUserId)) {
+                    sender.friends.push(currentUserId);
+                    await senderRef.update({ friends: sender.friends });
+                }
             }
 
             loadRequestsList();
@@ -516,11 +520,18 @@
             input.value = '';
         }
 
+        function handleKeyPress(event) {
+            if(event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
         function listenMessages() {
+            if(unsubscribeMessages) unsubscribeMessages(); // Hủy kết nối cũ tránh trùng lặp
             let chatKey = [currentUserId, activeChatFriendId].sort().join('_');
             let chatBox = document.getElementById('chatBox');
 
-            db.collection("chats").doc(chatKey).collection("messages")
+            unsubscribeMessages = db.collection("chats").doc(chatKey).collection("messages")
                 .orderBy("timestamp", "asc")
                 .onSnapshot(snapshot => {
                     chatBox.innerHTML = '';
@@ -536,7 +547,7 @@
         }
 
         window.onload = function() {
-            if(!checkOnlineStatus()) return;
+            checkOnlineStatus();
             if(currentUserId) {
                 switchView('dashboardView');
             } else {
