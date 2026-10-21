@@ -1,1 +1,14 @@
 
+{
+  "name": "messenger-kamal",
+  "version": "1.0.0",
+  "description": "Messenger App by Kamal",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve .",
+    "build": "echo 'No build step required'"
+  },
+  "dependencies": {
+    "serve": "^14.2.1"
+  }
+}
