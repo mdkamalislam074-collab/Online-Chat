@@ -52,11 +52,17 @@
         }
         .profile-pic-container img { width: 100%; height: 100%; object-fit: cover; }
 
-        .avatar-wrapper { position: relative; display: inline-block; }
+        .avatar-wrapper { position: relative; display: inline-block; cursor: pointer; }
         .avatar-sm { 
-            width: 40px; height: 40px; border-radius: 50%; object-fit: cover; 
-            border: 2px solid #e5e7eb; 
+            width: 45px; height: 45px; border-radius: 50%; object-fit: cover; 
+            border: 2px solid #22c55e; 
         }
+        .edit-badge {
+            position: absolute; bottom: 0; right: 0; background: #1d4ed8; color: #fff;
+            width: 16px; height: 16px; border-radius: 50%; font-size: 9px;
+            display: flex; align-items: center; justify-content: center; border: 1px solid #fff;
+        }
+
         .status-dot {
             position: absolute; bottom: 2px; right: 2px; width: 10px; height: 10px;
             border-radius: 50%; border: 2px solid #fff; display: none;
@@ -127,10 +133,13 @@
         <div id="dashboardView" class="view">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; background: #eef2ff; padding: 8px; border-radius: 8px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                    <div class="avatar-wrapper">
+                    <!-- গোল ছবির সাথে ক্যামেরা আইকন ও ছবি বদলানোর অপশন -->
+                    <div class="avatar-wrapper" onclick="document.getElementById('quickProfilePicInput').click()" title="প্রোফাইল ছবি পরিবর্তন করুন">
                         <img id="myAvatarDisplay" class="avatar-sm" src="" alt="">
-                        <div class="status-dot online"></div>
+                        <div class="edit-badge"><i class="fa-solid fa-camera"></i></div>
                     </div>
+                    <input type="file" id="quickProfilePicInput" style="display:none" accept="image/*" onchange="updateProfilePicture(event)">
+                    
                     <div>
                         <div id="myUserName" style="font-size: 13px; font-weight: 600;"></div>
                         <div id="myUserId" style="font-size: 11px; color: #1d4ed8; font-weight: 700;"></div>
@@ -187,14 +196,6 @@
         <div id="settingsView" class="view">
             <h3 style="font-size: 15px; margin-bottom: 10px;">Settings & Accounts</h3>
             
-            <div style="text-align: center; margin-bottom: 15px; background: #f3f4f6; padding: 12px; border-radius: 12px;">
-                <div class="profile-pic-container" onclick="document.getElementById('updateProfilePicInput').click()" style="margin: 0 auto 8px; width: 70px; height: 70px;">
-                    <img id="settingsProfileImg" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="Profile">
-                </div>
-                <input type="file" id="updateProfilePicInput" style="display:none" accept="image/*" onchange="updateProfilePicture(event)">
-                <div style="font-size: 11px; color: #4b5563; font-weight: 600;">প্রোফাইল ছবি বদলাতে ছবির ওপর ক্লিক করুন</div>
-            </div>
-
             <div style="margin-bottom: 15px; background: #f3f4f6; padding: 10px; border-radius: 8px;">
                 <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; color: #374151;">Saved Accounts (একাধিক আইডি)</div>
                 <div id="savedAccountsList" style="display: flex; flex-direction: column; gap: 6px; max-height: 100px; overflow-y: auto;"></div>
@@ -220,7 +221,8 @@
         const db = firebase.firestore();
 
         let currentUserId = localStorage.getItem('messenger_current_user_id') || null;
-        let activeChatFriendId = null;
+        let activeChatFriendId = localStorage.getItem('messenger_active_chat') || null;
+        let currentView = localStorage.getItem('messenger_current_view') || 'dashboardView';
         let tempProfilePic = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
         let unsubscribeMessages = null;
         let heartbeatInterval = null;
@@ -280,7 +282,6 @@
             reader.onload = async function() {
                 const newAvatarBase64 = reader.result;
                 
-                document.getElementById('settingsProfileImg').src = newAvatarBase64;
                 document.getElementById('myAvatarDisplay').src = newAvatarBase64;
 
                 try {
@@ -397,6 +398,8 @@
                 localStorage.removeItem('messenger_user_cache_' + currentUserId);
             }
             localStorage.removeItem('messenger_current_user_id');
+            localStorage.removeItem('messenger_current_view');
+            localStorage.removeItem('messenger_active_chat');
             currentUserId = null;
             activeChatFriendId = null;
             
@@ -407,6 +410,8 @@
             if(heartbeatInterval) clearInterval(heartbeatInterval);
             if(unsubscribeMessages) unsubscribeMessages();
             localStorage.removeItem('messenger_current_user_id');
+            localStorage.removeItem('messenger_current_view');
+            localStorage.removeItem('messenger_active_chat');
             currentUserId = null;
             switchView('signupView');
         }
@@ -452,15 +457,17 @@
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             document.getElementById(viewId).classList.add('active');
             
+            currentView = viewId;
+            localStorage.setItem('messenger_current_view', viewId);
+
             if(viewId === 'dashboardView') {
                 if(unsubscribeMessages) unsubscribeMessages();
+                localStorage.removeItem('messenger_active_chat');
                 loadDashboard();
             } else if(viewId === 'settingsView') {
                 loadSavedAccountsList();
-                let myAvatar = document.getElementById('myAvatarDisplay').src;
-                if(myAvatar) {
-                    document.getElementById('settingsProfileImg').src = myAvatar;
-                }
+            } else if(viewId === 'chatRoomView' && activeChatFriendId) {
+                openChat(activeChatFriendId, true);
             }
         }
 
@@ -525,7 +532,7 @@
             if(!user) return;
 
             if(query === user.id) {
-                resultDiv.innerHTML = `<p style="font-size:12px; color:red;">Eta apnar nijei id!</p>`;
+                resultDiv.innerHTML = `<p style="font-size:12px; color:red;">এটি আপনার নিজের আইডি!</p>`;
                 return;
             }
 
@@ -544,7 +551,7 @@
                         ${btnHtml}
                     </div>`;
             } else {
-                resultDiv.innerHTML = `<p style="font-size:12px; color:#888;">Online-e ei id paoa jayni.</p>`;
+                resultDiv.innerHTML = `<p style="font-size:12px; color:#888;">অনলাইনে এই আইডি পাওয়া যায়নি।</p>`;
             }
         }
 
@@ -557,7 +564,7 @@
                 if(!targetData.requests.includes(currentUserId)) {
                     targetData.requests.push(currentUserId);
                     await targetRef.update({ requests: targetData.requests });
-                    alert('Friend request pathano hoyeche!');
+                    alert('ফ্রেন্ড রিকোয়েস্ট পাঠানো হয়েছে!');
                 }
             }
         }
@@ -570,7 +577,7 @@
             container.innerHTML = '';
 
             if(!user.requests || user.requests.length === 0) {
-                container.innerHTML = `<div style="text-align: center; color: #888; font-size: 12px; margin-top: 20px;">Kono request nei.</div>`;
+                container.innerHTML = `<div style="text-align: center; color: #888; font-size: 12px; margin-top: 20px;">কোনো রিকোয়েস্ট নেই।</div>`;
                 return;
             }
 
@@ -608,7 +615,7 @@
                 }
             }
             loadRequestsList();
-            alert('Request accept kora hoyeche!');
+            alert('ফ্রেন্ড রিকোয়েস্ট গ্রহণ করা হয়েছে!');
         }
 
         async function loadFriendsList() {
@@ -619,7 +626,7 @@
             container.innerHTML = '';
 
             if(!user.friends || user.friends.length === 0) {
-                container.innerHTML = `<div style="text-align: center; color: #888; font-size: 12px; margin-top: 20px;">Kono friend nei.</div>`;
+                container.innerHTML = `<div style="text-align: center; color: #888; font-size: 12px; margin-top: 20px;">কোনো ফ্রেন্ড নেই।</div>`;
                 return;
             }
 
@@ -651,7 +658,7 @@
             container.innerHTML = '';
 
             if(!user || !user.friends || user.friends.length === 0) {
-                container.innerHTML = `<div style="text-align: center; color: #888; font-size: 12px; margin-top: 20px;">Chat shuru korte friend add korun.</div>`;
+                container.innerHTML = `<div style="text-align: center; color: #888; font-size: 12px; margin-top: 20px;">চ্যাট শুরু করতে ফ্রেন্ড যোগ করুন।</div>`;
                 return;
             }
 
@@ -675,10 +682,14 @@
             }
         }
 
-        async function openChat(friendId) {
+        async function openChat(friendId, isReload = false) {
             activeChatFriendId = friendId;
+            localStorage.setItem('messenger_active_chat', friendId);
+            
             let friendDoc = await db.collection("users").doc(friendId).get();
+            if(!friendDoc.exists) return;
             let friend = friendDoc.data();
+            
             document.getElementById('chatPartnerName').innerText = friend.name;
             document.getElementById('chatPartnerAvatar').src = friend.avatar;
             
@@ -689,7 +700,9 @@
                 dot.classList.remove('online');
             }
 
-            switchView('chatRoomView');
+            if(!isReload) {
+                switchView('chatRoomView');
+            }
             listenMessages();
         }
 
@@ -738,6 +751,8 @@
 
         function listenMessages() {
             if(unsubscribeMessages) unsubscribeMessages();
+            if(!activeChatFriendId) return;
+            
             let chatKey = [currentUserId, activeChatFriendId].sort().join('_');
             let chatBox = document.getElementById('chatBox');
 
@@ -775,11 +790,11 @@
         }
 
         async function deleteMessage(chatKey, msgId) {
-            if(confirm('Apni ki message-ti muchhe felte chan?')) {
+            if(confirm('মেসেজটি মুছে ফেলতে চান?')) {
                 try {
                     await db.collection("chats").doc(chatKey).collection("messages").doc(msgId).delete();
                 } catch(e) {
-                    alert('Delete korte somoshya hoyeche: ' + e.message);
+                    alert('মুছে ফেলতে সমস্যা হয়েছে: ' + e.message);
                 }
             }
         }
@@ -791,7 +806,8 @@
         window.onload = function() {
             checkOnlineStatus();
             if (currentUserId) {
-                switchView('dashboardView');
+                startHeartbeat();
+                switchView(currentView);
             } else {
                 switchView('signupView');
             }
