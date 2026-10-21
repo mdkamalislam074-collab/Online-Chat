@@ -1,245 +1,431 @@
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Messenger - Kamal (Online)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase SDK (Online Database) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
-const app = express();
-const server = http.createServer(app);
-const io = new Server(server);
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+        body { background-color: #f0f4f8; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+        .app-container { background: #ffffff; width: 100%; max-width: 480px; padding: 25px; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); min-height: 600px; display: flex; flex-direction: column; justify-content: space-between; }
+        
+        .app-header { text-align: center; margin-bottom: 15px; border-bottom: 1px solid #e5e7eb; padding-bottom: 10px; }
+        .app-header h1 { color: #1d4ed8; font-size: 24px; font-weight: 700; }
+        .app-header .sub-name { color: #6b7280; font-size: 13px; font-weight: 500; }
 
-app.use(express.json());
+        .view { display: none; flex: 1; flex-direction: column; }
+        .view.active { display: flex; }
 
-// ইউজার ডাটা সেভ করার জন্য অবজেক্ট
-const users = {}; 
+        .input-group { margin-bottom: 12px; }
+        .input-group label { display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 4px; }
+        .input-field input { width: 100%; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 13px; background-color: #f9fafb; outline: none; }
+        .btn { width: 100%; padding: 11px; background-color: #1d4ed8; color: #ffffff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+        .btn:hover { background-color: #1e40af; }
+        .btn-secondary { background-color: #4b5563; }
+        .btn-danger { background-color: #ef4444; }
 
-// মূল পেজ (ফ্রন্টএন্ড)
-app.get('/', (req, res) => {
-    res.send(`
-        <!DOCTYPE html>
-        <html lang="bn">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>প্রোফাইল ও চ্যাট অ্যাপ</title>
-            <style>
-                body { font-family: Arial, sans-serif; background-color: #f0f2f5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
-                .hidden { display: none !important; }
-                
-                #auth-container { display: flex; justify-content: center; align-items: center; height: 100vh; background: #075e54; }
-                .auth-box { background: white; padding: 25px; border-radius: 8px; width: 300px; box-shadow: 0px 4px 10px rgba(0,0,0,0.2); text-align: center; }
-                .auth-box input { width: 90%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; }
-                .auth-box button { width: 95%; padding: 10px; background: #075e54; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem; }
-                .auth-box a { color: #075e54; cursor: pointer; text-decoration: underline; font-size: 0.9rem; }
+        /* Profile Pic & Online Glowing Green Border */
+        .profile-pic-container { 
+            width: 80px; height: 80px; border-radius: 50%; background: #eef2ff; margin: 0 auto 10px; 
+            display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative;
+            border: 3px solid #22c55e; box-shadow: 0 0 10px rgba(34, 197, 94, 0.6);
+        }
+        .profile-pic-container img { width: 100%; height: 100%; object-fit: cover; }
 
-                #chat-screen { display: flex; flex-direction: column; height: 100vh; }
-                header { background-color: #075e54; color: white; padding: 15px; display: flex; align-items: center; justify-content: space-between; font-size: 1.1rem; }
-                .user-info { display: flex; align-items: center; gap: 10px; }
-                .user-info img, .message-row img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid white; background: #ddd; }
-                
-                #chat-container { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background: #e5ddd5; }
-                .message-row { display: flex; gap: 10px; max-width: 75%; align-items: flex-end; }
-                .message-row.sent { align-self: flex-end; flex-direction: row-reverse; }
-                .message-bubble { background: white; padding: 10px; border-radius: 8px; word-wrap: break-word; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
-                .sent .message-bubble { background: #dcf8c6; }
-                
-                #input-container { display: flex; padding: 10px; background: #f0f0f0; border-top: 1px solid #ccc; }
-                #message-input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; outline: none; font-size: 1rem; }
-                #send-btn { background: #075e54; color: white; border: none; padding: 10px 20px; margin-left: 10px; border-radius: 4px; cursor: pointer; font-size: 1rem; }
-            </style>
-        </head>
-        <body>
+        .avatar-wrapper { position: relative; display: inline-block; }
+        .avatar-sm { 
+            width: 40px; height: 40px; border-radius: 50%; object-fit: cover; 
+            border: 2px solid #22c55e; box-shadow: 0 0 6px rgba(34, 197, 94, 0.6);
+        }
+        
+        .nav-tabs { display: flex; gap: 5px; margin-bottom: 15px; background: #f3f4f6; padding: 4px; border-radius: 8px; }
+        .nav-tab { flex: 1; padding: 8px; text-align: center; font-size: 12px; font-weight: 600; cursor: pointer; border-radius: 6px; background: transparent; border: none; color: #4b5563; }
+        .nav-tab.active { background: #ffffff; color: #1d4ed8; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
 
-            <!-- লগইন ও সাইনআপ সেকশন -->
-            <div id="auth-container">
-                <div id="login-box" class="auth-box">
-                    <h2>লগইন করুন</h2>
-                    <input type="text" id="login-phone" placeholder="মোবাইল নাম্বার">
-                    <input type="password" id="login-password" placeholder="পাসওয়ার্ড">
-                    <button onclick="login()">লগইন</button>
-                    <p>অ্যাকাউন্ট নেই? <a onclick="showSignup()">রেজিস্ট্রেশন করুন</a></p>
+        .card-list { flex: 1; overflow-y: auto; max-height: 350px; display: flex; flex-direction: column; gap: 8px; }
+        .user-card { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; }
+        .user-info-sm { display: flex; align-items: center; gap: 10px; }
+        
+        .chat-box { flex: 1; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; overflow-y: auto; background-color: #f9fafb; margin-bottom: 10px; max-height: 300px; display: flex; flex-direction: column; gap: 8px; }
+        .message { max-width: 75%; padding: 8px 12px; border-radius: 8px; font-size: 13px; word-break: break-word; }
+        .message.sent { background-color: #3b82f6; color: white; align-self: flex-end; }
+        .message.received { background-color: #e5e7eb; color: #1f2937; align-self: flex-start; }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <div class="app-header">
+            <h1>Messenger</h1>
+            <div class="sub-name">Kamal</div>
+        </div>
+
+        <!-- ১. সাইন আপ স্ক্রিন -->
+        <div id="signupView" class="view active">
+            <h2 style="text-align:center; margin-bottom: 15px; font-size:18px;">Create Account</h2>
+            <form onsubmit="handleSignup(event)">
+                <div class="profile-pic-container" onclick="document.getElementById('profilePicInput').click()">
+                    <img id="previewImg" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="Profile">
                 </div>
+                <input type="file" id="profilePicInput" style="display:none" accept="image/*" onchange="previewImage(event)">
+                
+                <div class="input-group"><label>Full Name</label><div class="input-field"><input type="text" id="fullName" placeholder="Enter name" required></div></div>
+                <div class="input-group"><label>Email Address</label><div class="input-field"><input type="email" id="email" placeholder="Enter email" required></div></div>
+                <div class="input-group"><label>Password</label><div class="input-field"><input type="password" id="password" placeholder="Password" required></div></div>
+                <button type="submit" class="btn">Sign Up & Connect Online</button>
+            </form>
+        </div>
 
-                <div id="signup-box" class="auth-box hidden">
-                    <h2>নতুন অ্যাকাউন্ট</h2>
-                    <input type="text" id="signup-name" placeholder="আপনার নাম">
-                    <input type="text" id="signup-phone" placeholder="মোবাইল নাম্বার">
-                    <input type="password" id="signup-password" placeholder="পাসওয়ার্ড">
-                    <label style="font-size:0.85rem; text-align:left; display:block; margin-top:5px;">প্রোফাইল ছবির লিংক (ঐচ্ছিক):</label>
-                    <input type="text" id="signup-pic" placeholder="ছবির URL দিন">
-                    <button onclick="signup()">রেজিস্ট্রেশন</button>
-                    <p>ইতিমধ্যে অ্যাকাউন্ট আছে? <a onclick="showLogin()">লগইন করুন</a></p>
-                </div>
-            </div>
-
-            <!-- চ্যাট স্ক্রিন -->
-            <div id="chat-screen" class="hidden">
-                <header>
-                    <div class="user-info">
-                        <img id="my-profile-pic" src="" alt="Pic">
-                        <span id="my-name-display">নাম</span>
+        <!-- ২. ড্যাশবোর্ড স্ক্রিন -->
+        <div id="dashboardView" class="view">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; background: #eef2ff; padding: 8px; border-radius: 8px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div class="avatar-wrapper"><img id="myAvatarDisplay" class="avatar-sm" src="" alt=""></div>
+                    <div>
+                        <div id="myUserName" style="font-size: 13px; font-weight: 600;"></div>
+                        <div id="myUserId" style="font-size: 11px; color: #1d4ed8; font-weight: 700;"></div>
                     </div>
-                    <button onclick="logout()" style="background:#ff4d4d; color:white; border:none; padding:6px 12px; border-radius:4px; cursor:pointer;">লগআউট</button>
-                </header>
-
-                <div id="chat-container"></div>
-
-                <div id="input-container">
-                    <input type="text" id="message-input" placeholder="মেসেজ লিখুন..." autocomplete="off">
-                    <button id="send-btn" onclick="sendMessage()">পাঠান</button>
                 </div>
+                <button class="btn" style="width: auto; padding: 5px 10px; font-size: 11px;" onclick="switchView('settingsView')"><i class="fa-solid fa-gear"></i> Settings</button>
             </div>
 
-            <script src="/socket.io/socket.io.js"></script>
-            <script>
-                const socket = io();
-                let currentUser = null;
+            <div class="nav-tabs">
+                <button class="nav-tab active" onclick="switchTab('chats')">Chats</button>
+                <button class="nav-tab" onclick="switchTab('friends')">Friends</button>
+                <button class="nav-tab" onclick="switchTab('requests')">Requests</button>
+                <button class="nav-tab" onclick="switchTab('search')">Search</button>
+            </div>
 
-                function showSignup() {
-                    document.getElementById('login-box').classList.add('hidden');
-                    document.getElementById('signup-box').classList.remove('hidden');
-                }
+            <div id="tabChats" class="tab-content card-list"></div>
+            <div id="tabFriends" class="tab-content card-list" style="display:none;"></div>
+            <div id="tabRequests" class="tab-content card-list" style="display:none;"></div>
+            <div id="tabSearch" class="tab-content" style="display:none;">
+                <div class="input-group">
+                    <label>Search by Unique ID (e.g. #1002)</label>
+                    <div style="display: flex; gap: 5px;">
+                        <input type="text" id="searchInput" placeholder="Enter ID number...">
+                        <button class="btn" style="margin-top:0; width: 80px;" onclick="searchUser()">Search</button>
+                    </div>
+                </div>
+                <div id="searchResult" style="margin-top: 10px;"></div>
+            </div>
+        </div>
 
-                function showLogin() {
-                    document.getElementById('signup-box').classList.add('hidden');
-                    document.getElementById('login-box').classList.remove('hidden');
-                }
+        <!-- ৩. চ্যাট রুম স্ক্রিন -->
+        <div id="chatRoomView" class="view">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px;">
+                <button class="btn" style="width: auto; margin-top:0; padding: 5px 10px; background:#6b7280;" onclick="switchView('dashboardView')"><i class="fa-solid fa-arrow-left"></i></button>
+                <div class="avatar-wrapper"><img id="chatPartnerAvatar" class="avatar-sm" src="" alt=""></div>
+                <span id="chatPartnerName" style="font-size: 14px; font-weight: 600;"></span>
+            </div>
+            <div class="chat-box" id="chatBox"></div>
+            <div style="display: flex; gap: 5px;">
+                <input type="text" id="messageInput" placeholder="Type a message..." style="flex:1; padding: 10px; border:1px solid #ddd; border-radius: 8px; outline:none;">
+                <button class="btn" style="width: 70px; margin-top:0;" onclick="sendMessage()">Send</button>
+            </div>
+        </div>
 
-                async function signup() {
-                    const name = document.getElementById('signup-name').value.trim();
-                    const phone = document.getElementById('signup-phone').value.trim();
-                    const password = document.getElementById('signup-password').value.trim();
-                    let profilePic = document.getElementById('signup-pic').value.trim();
+        <!-- ৪. সেটিংস স্ক্রিন -->
+        <div id="settingsView" class="view">
+            <h3 style="font-size: 15px; margin-bottom: 10px;">Settings & Accounts</h3>
+            <div id="accountList" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;"></div>
+            <button class="btn" onclick="switchView('signupView')">+ Add New Account</button>
+            <button class="btn btn-secondary" style="margin-top: 8px;" onclick="switchView('dashboardView')">Back to Dashboard</button>
+        </div>
+    </div>
 
-                    if(!name || !phone || !password) {
-                        alert('দمه করে নাম, নাম্বার এবং পাসওয়ার্ড পূরণ করুন!');
-                        return;
-                    }
+    <script>
+        // আপনার ফায়ারবেস ক্লাউড ডেটাবেস কনফিগারেশন এখানে যুক্ত করতে হবে
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
 
-                    if(!profilePic) {
-                        profilePic = 'https://i.imgur.com/6VBx3io.png'; // ডিফল্ট ছবি
-                    }
+        // ফায়ারবেস ইনিশিয়ালাইজ (অনলাইন সংযোগ)
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
 
-                    try {
-                        const res = await fetch('/api/signup', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ name, phone, password, profilePic })
-                        });
-                        const data = await res.json();
-                        alert(data.message);
-                        if (data.success) {
-                            showLogin();
-                        }
-                    } catch (err) {
-                        alert('সার্ভার কানেকশন এরর!');
-                    }
-                }
+        let currentUserId = localStorage.getItem('messenger_current_user_id') || null;
+        let activeChatFriendId = null;
+        let tempProfilePic = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 
-                async function login() {
-                    const phone = document.getElementById('login-phone').value.trim();
-                    const password = document.getElementById('login-password').value.trim();
+        function previewImage(event) {
+            const reader = new FileReader();
+            reader.onload = function() {
+                tempProfilePic = reader.result;
+                document.getElementById('previewImg').src = tempProfilePic;
+            }
+            reader.readAsDataURL(event.target.files[0]);
+        }
 
-                    if(!phone || !password) {
-                        alert('নাম্বার ও পাসওয়ার্ড দিন!');
-                        return;
-                    }
+        // অনলাইন ফায়ারবেসে অ্যাকাউন্ট সেভ করা
+        async function handleSignup(event) {
+            event.preventDefault();
+            const name = document.getElementById('fullName').value;
+            const email = document.getElementById('email').value;
+            const uniqueId = '#' + Math.floor(1000 + Math.random() * 9000);
 
-                    try {
-                        const res = await fetch('/api/login', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ phone, password })
-                        });
-                        const data = await res.json();
-                        
-                        if (data.success) {
-                            currentUser = data.user;
-                            document.getElementById('auth-container').classList.add('hidden');
-                            document.getElementById('chat-screen').classList.remove('hidden');
-                            document.getElementById('my-name-display').textContent = currentUser.name;
-                            document.getElementById('my-profile-pic').src = currentUser.profilePic;
-                        } else {
-                            alert(data.message);
-                        }
-                    } catch (err) {
-                        alert('লগইন করতে সমস্যা হচ্ছে!');
-                    }
-                }
+            const newUser = {
+                id: uniqueId,
+                name: name,
+                email: email,
+                avatar: tempProfilePic,
+                friends: [],
+                requests: []
+            };
 
-                function logout() {
-                    location.reload();
-                }
+            await db.collection("users").doc(uniqueId).set(newUser);
+            loginUser(uniqueId);
+        }
 
-                function sendMessage() {
-                    const text = document.getElementById('message-input').value.trim();
-                    if (text === '' || !currentUser) return;
+        function loginUser(id) {
+            currentUserId = id;
+            localStorage.setItem('messenger_current_user_id', currentUserId);
+            loadDashboard();
+            switchView('dashboardView');
+        }
 
-                    const messageData = {
-                        name: currentUser.name,
-                        phone: currentUser.phone,
-                        profilePic: currentUser.profilePic,
-                        text: text
-                    };
+        function switchView(viewId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+            if(viewId === 'dashboardView') loadDashboard();
+        }
 
-                    socket.emit('chat message', messageData);
-                    document.getElementById('message-input').value = '';
-                }
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
+            document.querySelectorAll('.nav-tab').forEach(n => n.classList.remove('active'));
+            
+            if(tabName === 'chats') {
+                document.getElementById('tabChats').style.display = 'flex';
+                event.target.classList.add('active');
+                loadChatList();
+            } else if(tabName === 'friends') {
+                document.getElementById('tabFriends').style.display = 'flex';
+                event.target.classList.add('active');
+                loadFriendsList();
+            } else if(tabName === 'requests') {
+                document.getElementById('tabRequests').style.display = 'flex';
+                event.target.classList.add('active');
+                loadRequestsList();
+            } else if(tabName === 'search') {
+                document.getElementById('tabSearch').style.display = 'block';
+                event.target.classList.add('active');
+            }
+        }
 
-                socket.on('chat message', function(data) {
-                    const chatContainer = document.getElementById('chat-container');
-                    
-                    const row = document.createElement('div');
-                    row.classList.add('message-row');
-                    if (currentUser && data.phone === currentUser.phone) {
-                        row.classList.add('sent');
-                    }
+        async function loadDashboard() {
+            if(!currentUserId) return switchView('signupView');
+            let doc = await db.collection("users").doc(currentUserId).get();
+            if(!doc.exists) return switchView('signupView');
+            
+            let user = doc.data();
+            document.getElementById('myUserName').innerText = user.name;
+            document.getElementById('myUserId').innerText = "ID: " + user.id;
+            document.getElementById('myAvatarDisplay').src = user.avatar;
+            loadChatList();
+        }
 
-                    row.innerHTML = \`
-                        <img src="\${data.profilePic}" alt="Pic">
-                        <div class="message-bubble">
-                            <b style="font-size:0.8rem; color:#075e54; display:block;">\${data.name}</b>
-                            <span>\${data.text}</span>
+        async function searchUser() {
+            let query = document.getElementById('searchInput').value.trim();
+            let resultDiv = document.getElementById('searchResult');
+            let userDoc = await db.collection("users").doc(currentUserId).get();
+            let user = userDoc.data();
+
+            if(query === user.id) {
+                resultDiv.innerHTML = `<p style="font-size:12px; color:red;">এটি আপনার নিজের আইডি!</p>`;
+                return;
+            }
+
+            let targetDoc = await db.collection("users").doc(query).get();
+            if(targetDoc.exists) {
+                let found = targetDoc.data();
+                let isAlreadyFriend = user.friends.includes(found.id);
+                let btnHtml = isAlreadyFriend ? `<span style="font-size:11px; color:green; font-weight:600;">Friends</span>` : `<button class="btn" style="width:auto; padding:4px 10px; font-size:11px;" onclick="sendFriendRequest('${found.id}')">Add Friend</button>`;
+                
+                resultDiv.innerHTML = `
+                    <div class="user-card">
+                        <div class="user-info-sm">
+                            <div class="avatar-wrapper"><img src="${found.avatar}" class="avatar-sm"></div>
+                            <div><div style="font-size:13px; font-weight:600;">${found.name}</div><div style="font-size:11px; color:#666;">${found.id}</div></div>
                         </div>
-                    \`.replace(/\\/g, ''); // ক্লিনআপ ব্যাকস্ল্যাশ
-                    
-                    chatContainer.appendChild(row);
-                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                        ${btnHtml}
+                    </div>`;
+            } else {
+                resultDiv.innerHTML = `<p style="font-size:12px; color:#888;">অনলাইনে এই আইডি পাওয়া যায়নি।</p>`;
+            }
+        }
+
+        async function sendFriendRequest(targetId) {
+            let targetRef = db.collection("users").doc(targetId);
+            let targetDoc = await targetRef.get();
+            if(targetDoc.exists) {
+                let targetData = targetDoc.data();
+                if(!targetData.requests.includes(currentUserId)) {
+                    targetData.requests.push(currentUserId);
+                    await targetRef.update({ requests: targetData.requests });
+                    alert('অনলাইনে ফ্রেন্ড রিকোয়েস্ট পাঠানো হয়েছে!');
+                }
+            }
+        }
+
+        async function loadRequestsList() {
+            let userDoc = await db.collection("users").doc(currentUserId).get();
+            let user = userDoc.data();
+            let container = document.getElementById('tabRequests');
+            container.innerHTML = '';
+
+            if(user.requests.length === 0) {
+                container.innerHTML = `<div style="text-align: center; color: #888; font-size: 12px; margin-top: 20px;">কোনো রিকোয়েস্ট নেই।</div>`;
+                return;
+            }
+
+            for(let reqId of user.requests) {
+                let senderDoc = await db.collection("users").doc(reqId).get();
+                if(senderDoc.exists) {
+                    let sender = senderDoc.data();
+                    container.innerHTML += `
+                        <div class="user-card">
+                            <div class="user-info-sm"><div class="avatar-wrapper"><img src="${sender.avatar}" class="avatar-sm"></div><div><div style="font-size:13px; font-weight:600;">${sender.name}</div><div style="font-size:11px; color:#666;">${sender.id}</div></div></div>
+                            <button class="btn" style="width:auto; padding:4px 10px; font-size:11px;" onclick="acceptRequest('${sender.id}')">Accept</button>
+                        </div>`;
+                }
+            }
+        }
+
+        async function acceptRequest(senderId) {
+            let userRef = db.collection("users").doc(currentUserId);
+            let userDoc = await userRef.get();
+            let user = userDoc.data();
+
+            user.requests = user.requests.filter(id => id !== senderId);
+            user.friends.push(senderId);
+            await userRef.update({ friends: user.friends, requests: user.requests });
+
+            let senderRef = db.collection("users").doc(senderId);
+            let senderDoc = await senderRef.get();
+            let sender = senderDoc.data();
+            if(!sender.friends.includes(currentUserId)) {
+                sender.friends.push(currentUserId);
+                await senderRef.update({ friends: sender.friends });
+            }
+
+            loadRequestsList();
+            alert('ফ্রেন্ড রিকোয়েস্ট গ্রহণ করা হয়েছে!');
+        }
+
+        async function loadFriendsList() {
+            let userDoc = await db.collection("users").doc(currentUserId).get();
+            let user = userDoc.data();
+            let container = document.getElementById('tabFriends');
+            container.innerHTML = '';
+
+            if(user.friends.length === 0) {
+                container.innerHTML = `<div style="text-align: center; color: #888; font-size: 12px; margin-top: 20px;">আপনার কোনো ফ্রেন্ড নেই।</div>`;
+                return;
+            }
+
+            for(let fId of user.friends) {
+                let friendDoc = await db.collection("users").doc(fId).get();
+                if(friendDoc.exists) {
+                    let friend = friendDoc.data();
+                    container.innerHTML += `
+                        <div class="user-card">
+                            <div class="user-info-sm"><div class="avatar-wrapper"><img src="${friend.avatar}" class="avatar-sm"></div><div><div style="font-size:13px; font-weight:600;">${friend.name}</div><div style="font-size:11px; color:#666;">${friend.id} (Online)</div></div></div>
+                            <button class="btn" style="width:auto; padding:4px 10px; font-size:11px;" onclick="openChat('${friend.id}')">Chat</button>
+                        </div>`;
+                }
+            }
+        }
+
+        async function loadChatList() {
+            let userDoc = await db.collection("users").doc(currentUserId).get();
+            let user = userDoc.data();
+            let container = document.getElementById('tabChats');
+            container.innerHTML = '';
+
+            if(!user || user.friends.length === 0) {
+                container.innerHTML = `<div style="text-align: center; color: #888; font-size: 12px; margin-top: 20px;">চ্যাট শুরু করতে ফ্রেন্ড যোগ করুন।</div>`;
+                return;
+            }
+
+            for(let fId of user.friends) {
+                let friendDoc = await db.collection("users").doc(fId).get();
+                if(friendDoc.exists) {
+                    let friend = friendDoc.data();
+                    container.innerHTML += `
+                        <div class="user-card" onclick="openChat('${friend.id}')" style="cursor:pointer;">
+                            <div class="user-info-sm"><div class="avatar-wrapper"><img src="${friend.avatar}" class="avatar-sm"></div><div><div style="font-size:13px; font-weight:600;">${friend.name}</div><div style="font-size:11px; color:#22c55e; font-weight:600;">Active Now</div></div></div>
+                            <i class="fa-solid fa-chevron-right" style="font-size:12px; color:#aaa;"></i>
+                        </div>`;
+                }
+            }
+        }
+
+        async function openChat(friendId) {
+            activeChatFriendId = friendId;
+            let friendDoc = await db.collection("users").doc(friendId).get();
+            let friend = friendDoc.data();
+            document.getElementById('chatPartnerName').innerText = friend.name;
+            document.getElementById('chatPartnerAvatar').src = friend.avatar;
+            switchView('chatRoomView');
+            listenMessages();
+        }
+
+        // রিয়েল-টাইম অনলাইন মেসেজ আদান-প্রদান
+        function sendMessage() {
+            let input = document.getElementById('messageInput');
+            let text = input.value.trim();
+            if(!text) return;
+
+            let chatKey = [currentUserId, activeChatFriendId].sort().join('_');
+            
+            db.collection("chats").doc(chatKey).collection("messages").add({
+                sender: currentUserId,
+                text: text,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            input.value = '';
+        }
+
+        function listenMessages() {
+            let chatKey = [currentUserId, activeChatFriendId].sort().join('_');
+            let chatBox = document.getElementById('chatBox');
+
+            db.collection("chats").doc(chatKey).collection("messages")
+                .orderBy("timestamp", "asc")
+                .onSnapshot(snapshot => {
+                    chatBox.innerHTML = '';
+                    snapshot.forEach(doc => {
+                        let msg = doc.data();
+                        let div = document.createElement('div');
+                        div.className = `message ${msg.sender === currentUserId ? 'sent' : 'received'}`;
+                        div.innerText = msg.text;
+                        chatBox.appendChild(div);
+                    });
+                    chatBox.scrollTop = chatBox.scrollHeight;
                 });
+        }
 
-                document.getElementById('message-input').addEventListener('keypress', function (e) {
-                    if (e.key === 'Enter') sendMessage();
-                });
-            </script>
-        </body>
-        </html>
-    `);
-});
-
-// ব্যাকএন্ড API রাউট
-app.post('/api/signup', (req, res) => {
-    const { phone, password, name, profilePic } = req.body;
-    if (users[phone]) {
-        return res.json({ success: false, message: 'এই নাম্বার দিয়ে ইতিমধ্যে অ্যাকাউন্ট আছে!' });
-    }
-    users[phone] = { password, name, profilePic };
-    res.json({ success: true, message: 'রেজিস্ট্রেশন সফল হয়েছে! এবার লগইন করুন।' });
-});
-
-app.post('/api/login', (req, res) => {
-    const { phone, password } = req.body;
-    if (!users[phone] || users[phone].password !== password) {
-        return res.json({ success: false, message: 'ভুল নাম্বার বা পাসওয়ার্ড!' });
-    }
-    res.json({ success: true, user: { phone, name: users[phone].name, profilePic: users[phone].profilePic } });
-});
-
-// রিয়েল-টাইম চ্যাট সকেট
-io.on('connection', (socket) => {
-    socket.on('chat message', (data) => {
-        io.emit('chat message', data);
-    });
-});
-
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`সার্ভার চালু হয়েছে: http://localhost:${PORT}`);
-});
+        window.onload = function() {
+            if(currentUserId) {
+                loadDashboard();
+                switchView('dashboardView');
+            } else {
+                switchView('signupView');
+            }
+        }
+    </script>
+</body>
+</html>
