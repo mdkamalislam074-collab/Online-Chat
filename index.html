@@ -2,41 +2,160 @@
 <html lang="bn">
 <head>
     <meta charset="UTF-8">
-    <title>Online Chat</title>
+    <title>প্রাইভেট ও গ্রুপ চ্যাট অ্যাপ</title>
     <style>
-        body { font-family: Arial, sans-serif; background: #f0f2f5; padding: 20px; }
-        #chat-container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        #messages { height: 300px; border: 1px solid #ddd; overflow-y: scroll; margin-bottom: 10px; padding: 10px; }
-        input, button { padding: 10px; margin: 5px 0; }
+        body { font-family: Arial, sans-serif; background: #f0f2f5; margin: 0; padding: 0; }
+        #login-screen { display: flex; justify-content: center; align-items: center; height: 100vh; background: #e4e6eb; }
+        .login-box { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 300px; text-align: center; }
+        .login-box input { width: 90%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px; }
+        .login-box button { width: 95%; padding: 10px; background: #0084ff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        
+        #chat-screen { display: none; display: flex; height: 100vh; }
+        .sidebar { width: 30%; background: white; border-right: 1px solid #ddd; overflow-y: auto; padding: 10px; }
+        .chat-area { width: 70%; display: flex; flex-direction: column; background: #f7f9fa; }
+        
+        .user-item { display: flex; align-items: center; padding: 10px; cursor: pointer; border-bottom: 1px solid #eee; }
+        .user-item:hover { background: #f0f2f5; }
+        .user-item img { width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; object-fit: cover; }
+        
+        .messages-box { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; }
+        .message { margin-bottom: 10px; max-width: 60%; padding: 10px; border-radius: 8px; position: relative; }
+        .message.incoming { background: white; align-self: flex-start; border: 1px solid #ddd; }
+        .message.outgoing { background: #0084ff; color: white; align-self: flex-end; }
+        
+        .chat-input-area { display: flex; padding: 10px; background: white; border-top: 1px solid #ddd; }
+        .chat-input-area input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px; outline: none; }
+        .chat-input-area button { padding: 10px 20px; background: #0084ff; color: white; border: none; border-radius: 4px; margin-left: 5px; cursor: pointer; }
     </style>
 </head>
 <body>
-    <div id="chat-container">
-        <h2>অনলাইন চ্যাট অ্যাপ</h2>
-        <div id="messages"></div>
-        <input type="text" id="messageInput" placeholder="মেসেজ লিখুন..." style="width: 70%;">
-        <button id="sendBtn" style="width: 25%;">পাঠান</button>
+
+    <!-- লগইন স্ক্রিন (নাম ও প্রোফাইল ছবি দেওয়ার জন্য) -->
+    <div id="login-screen">
+        <div class="login-box">
+            <h2>চ্যাট অ্যাপে স্বাগতম</h2>
+            <input type="text" id="usernameInput" placeholder="আপনার নাম লিখুন">
+            <input type="text" id="picInput" placeholder="প্রোফাইল ছবির লিংক (Image URL)">
+            <button id="joinBtn">চ্যাটে প্রবেশ করুন</button>
+        </div>
     </div>
+
+    <!-- মূল চ্যাট স্ক্রিন -->
+    <div id="chat-screen" style="display: none;">
+        <!-- বাম পাশে ইউজার লিস্ট -->
+        <div class="sidebar">
+            <h3>অনলাইন ব্যবহারকারী</h3>
+            <div id="userList"></div>
+        </div>
+
+        <!-- ডান পাশে মেসেজিং এরিয়া -->
+        <div class="chat-area">
+            <div id="chatHeader" style="padding: 15px; background: white; border-bottom: 1px solid #ddd; font-weight: bold;">সবার সাথে চ্যাট (Global Chat)</div>
+            <div class="messages-box" id="messagesBox"></div>
+            <div class="chat-input-area">
+                <input type="text" id="messageInput" placeholder="একটি মেসেজ লিখুন...">
+                <button id="sendBtn">পাঠান</button>
+            </div>
+        </div>
+    </div>
+
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-        const sendBtn = document.getElementById('sendBtn');
-        const messageInput = document.getElementById('messageInput');
-        const messages = document.getElementById('messages');
 
+        const loginScreen = document.getElementById('login-screen');
+        const chatScreen = document.getElementById('chat-screen');
+        const usernameInput = document.getElementById('usernameInput');
+        const picInput = document.getElementById('picInput');
+        const joinBtn = document.getElementById('joinBtn');
+        
+        const userListDiv = document.getElementById('userList');
+        const messagesBox = document.getElementById('messagesBox');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const chatHeader = document.getElementById('chatHeader');
+
+        let myName = '';
+        let myPic = '';
+        let currentRecipientId = 'global'; // ডিফল্টভাবে পাবলিক চ্যাট
+
+        // চ্যাটে প্রবেশ করার বাটন ক্লিক
+        joinBtn.addEventListener('click', () => {
+            myName = usernameInput.value.trim();
+            myPic = picInput.value.trim() || 'https://via.placeholder.com/150';
+
+            if(myName) {
+                loginScreen.style.display = 'none';
+                chatScreen.style.display = 'flex';
+
+                // সার্ভারে ইউজার ইনফো পাঠানো
+                socket.emit('join_chat', { username: myName, profilePic: myPic });
+            } else {
+                alert('দয়া করে আপনার নাম লিখুন!');
+            }
+        });
+
+        // ইউজার লিস্ট আপডেট হওয়া
+        socket.on('update_user_list', (users) => {
+            userListDiv.innerHTML = `<div class="user-item" onclick="selectGlobalChat()"><b>সকলের সাথে চ্যাট (Global)</b></div>`;
+            users.forEach(user => {
+                if(user.id !== socket.id) {
+                    userListDiv.innerHTML += `
+                        <div class="user-item" onclick="selectPrivateChat('${user.id}', '${user.username}')">
+                            <img src="${user.profilePic}" alt="pic">
+                            <span>${user.username}</span>
+                        </div>
+                    `;
+                }
+            });
+        });
+
+        function selectGlobalChat() {
+            currentRecipientId = 'global';
+            chatHeader.innerText = 'সবার সাথে চ্যাট (Global Chat)';
+            messagesBox.innerHTML = '';
+        }
+
+        function selectPrivateChat(userId, userName) {
+            currentRecipientId = userId;
+            chatHeader.innerText = `প্রাইভেট চ্যাট: ${userName}`;
+            messagesBox.innerHTML = '';
+        }
+
+        // মেসেজ পাঠানোর জন্য
         sendBtn.addEventListener('click', () => {
-            if(messageInput.value) {
-                socket.emit('chat_message', { message: messageInput.value });
+            const msg = messageInput.value.trim();
+            if(msg) {
+                if(currentRecipientId === 'global') {
+                    socket.emit('chat_message', { message: msg });
+                } else {
+                    socket.emit('private_message', { toUserId: currentRecipientId, message: msg });
+                    // নিজের স্ক্রিনে প্রাইভেট মেসেজ দেখানো
+                    appendMessage('নিজেকে (Private): ' + msg, 'outgoing');
+                }
                 messageInput.value = '';
             }
         });
 
+        // পাবলিক মেসেজ রিসিভ
         socket.on('receive_message', (data) => {
-            const div = document.createElement('div');
-            div.innerHTML = `<strong>${data.sender}:</strong> ${data.message} <span style="font-size:10px; color:gray;">(${data.time})</span>`;
-            messages.appendChild(div);
-            messages.scrollTop = messages.scrollHeight;
+            if(currentRecipientId === 'global') {
+                appendMessage(`${data.sender}: ${data.message}`, data.sender === myName ? 'outgoing' : 'incoming');
+            }
         });
+
+        // প্রাইভেট মেসেজ রিসিভ
+        socket.on('receive_private_message', (data) => {
+            appendMessage(`${data.senderName} (Private): ${data.message}`, 'incoming');
+        });
+
+        function appendMessage(text, type) {
+            const div = document.createElement('div');
+            div.className = `message ${type}`;
+            div.innerText = text;
+            messagesBox.appendChild(div);
+            messagesBox.scrollTop = messagesBox.scrollHeight;
+        }
     </script>
 </body>
 </html>
