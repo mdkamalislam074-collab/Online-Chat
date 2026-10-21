@@ -52,7 +52,6 @@
         }
         .profile-pic-container img { width: 100%; height: 100%; object-fit: cover; }
 
-        /* Dynamic Online Status Indicator (Sobuj Bati) */
         .avatar-wrapper { position: relative; display: inline-block; }
         .avatar-sm { 
             width: 40px; height: 40px; border-radius: 50%; object-fit: cover; 
@@ -80,6 +79,8 @@
         .message { padding: 8px 12px; border-radius: 8px; font-size: 13px; word-break: break-word; position: relative; }
         .message.sent { background-color: #3b82f6; color: white; }
         .message.received { background-color: #e5e7eb; color: #1f2937; }
+        .message img { max-width: 100%; border-radius: 6px; margin-top: 4px; display: block; }
+        
         .delete-btn { font-size: 10px; color: rgba(255,255,255,0.8); background: none; border: none; cursor: pointer; margin-top: 2px; text-align: right; }
         .message.received .delete-btn { color: #6b7280; }
     </style>
@@ -170,8 +171,13 @@
                 </div>
                 <span id="chatPartnerName" style="font-size: 14px; font-weight: 600;"></span>
             </div>
+            
             <div class="chat-box" id="chatBox"></div>
-            <div style="display: flex; gap: 5px;">
+            
+            <div style="display: flex; gap: 5px; align-items: center;">
+                <input type="file" id="chatImageInput" style="display:none" accept="image/*" onchange="sendChatImage(event)">
+                <button class="btn" style="width: 40px; margin-top:0; background-color: #10b981;" onclick="document.getElementById('chatImageInput').click()" title="Send Picture"><i class="fa-solid fa-image"></i></button>
+                
                 <input type="text" id="messageInput" placeholder="Type a message..." style="flex:1; padding: 10px; border:1px solid #ddd; border-radius: 8px; outline:none;" onkeypress="handleKeyPress(event)">
                 <button class="btn" style="width: 70px; margin-top:0;" onclick="sendMessage()">Send</button>
             </div>
@@ -218,7 +224,6 @@
         window.addEventListener('online', checkOnlineStatus);
         window.addEventListener('offline', checkOnlineStatus);
 
-        // Active Status (Heartbeat) update every 15 seconds
         function startHeartbeat() {
             if (!currentUserId) return;
             if (heartbeatInterval) clearInterval(heartbeatInterval);
@@ -228,7 +233,7 @@
                     await db.collection("users").doc(currentUserId).update({
                         lastActive: firebase.firestore.FieldValue.serverTimestamp()
                     });
-                } catch(e) { console.error(e); }
+                } catch(e) {}
             };
             updateStatus();
             heartbeatInterval = setInterval(updateStatus, 15000);
@@ -238,7 +243,6 @@
             if (!lastActiveTimestamp) return false;
             const lastTime = lastActiveTimestamp.toMillis ? lastActiveTimestamp.toMillis() : new Date(lastActiveTimestamp).getTime();
             const now = new Date().getTime();
-            // Jodi 30 second er moddhe active thake taholei sobuj bati jolbe
             return (now - lastTime) < 30000;
         }
 
@@ -381,9 +385,7 @@
                 document.getElementById('myUserId').innerText = "ID: " + user.id;
                 document.getElementById('myAvatarDisplay').src = user.avatar;
                 loadChatList();
-            } catch(e) {
-                console.error(e);
-            }
+            } catch(e) {}
         }
 
         async function searchUser() {
@@ -568,10 +570,32 @@
             await db.collection("chats").doc(chatKey).collection("messages").add({
                 sender: currentUserId,
                 text: text,
+                type: 'text',
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             });
 
             input.value = '';
+        }
+
+        // চ্যাট বক্সে ছবি পাঠানোর ফাংশন
+        function sendChatImage(event) {
+            const file = event.target.files[0];
+            if(!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function() {
+                const base64Image = reader.result;
+                let chatKey = [currentUserId, activeChatFriendId].sort().join('_');
+                
+                await db.collection("chats").doc(chatKey).collection("messages").add({
+                    sender: currentUserId,
+                    text: base64Image,
+                    type: 'image',
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }
+            reader.readAsDataURL(file);
+            event.target.value = ''; // Reset input
         }
 
         function handleKeyPress(event) {
@@ -599,9 +623,16 @@
                         
                         let deleteBtnHtml = isMe ? `<button class="delete-btn" onclick="deleteMessage('${chatKey}', '${msgId}')"><i class="fa-solid fa-trash"></i> Delete</button>` : '';
 
+                        let contentHtml = '';
+                        if(msg.type === 'image') {
+                            contentHtml = `<img src="${msg.text}" alt="Shared Image">`;
+                        } else {
+                            contentHtml = escapeHtml(msg.text);
+                        }
+
                         div.innerHTML = `
                             <div class="message ${isMe ? 'sent' : 'received'}">
-                                ${escapeHtml(msg.text)}
+                                ${contentHtml}
                             </div>
                             ${deleteBtnHtml}
                         `;
