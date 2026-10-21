@@ -93,9 +93,9 @@
             <div class="sub-name">Kamal</div>
         </div>
 
-        <div id="offlineBanner">⚠️ ইন্টারনেটের সাথে সংযোগ নেই!</div>
+        <div id="offlineBanner">⚠️ Interenter sathe connection nei!</div>
 
-        <!-- ১. সাইন আপ স্ক্রিন -->
+        <!-- 1. Signup View -->
         <div id="signupView" class="view active">
             <h2 style="text-align:center; margin-bottom: 15px; font-size:18px;">Create Account</h2>
             <form onsubmit="handleSignup(event)">
@@ -112,7 +112,7 @@
             <div class="switch-text" onclick="switchView('loginView')">Already have an account? <span>Login here</span></div>
         </div>
 
-        <!-- ২. লগইন স্ক্রিন -->
+        <!-- 2. Login View -->
         <div id="loginView" class="view">
             <h2 style="text-align:center; margin-bottom: 15px; font-size:18px;">Login to Messenger</h2>
             <form onsubmit="handleLogin(event)">
@@ -123,7 +123,7 @@
             <div class="switch-text" onclick="switchView('signupView')">Don't have an account? <span>Create Account</span></div>
         </div>
 
-        <!-- ৩. ড্যাশবোর্ড স্ক্রিন -->
+        <!-- 3. Dashboard View -->
         <div id="dashboardView" class="view">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; background: #eef2ff; padding: 8px; border-radius: 8px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
@@ -161,7 +161,7 @@
             </div>
         </div>
 
-        <!-- ৪. চ্যাট রুম স্ক্রিন -->
+        <!-- 4. Chat Room View -->
         <div id="chatRoomView" class="view">
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px;">
                 <button class="btn" style="width: auto; margin-top:0; padding: 5px 10px; background:#6b7280;" onclick="switchView('dashboardView')"><i class="fa-solid fa-arrow-left"></i></button>
@@ -183,7 +183,7 @@
             </div>
         </div>
 
-        <!-- ৫. সেটিংস স্ক্রিন -->
+        <!-- 5. Settings View -->
         <div id="settingsView" class="view">
             <h3 style="font-size: 15px; margin-bottom: 10px;">Settings & Accounts</h3>
             
@@ -219,6 +219,7 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
+        // LocalStorage theke current user ebong tar data load kora
         let currentUserId = localStorage.getItem('messenger_current_user_id') || null;
         let activeChatFriendId = null;
         let tempProfilePic = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
@@ -297,6 +298,11 @@
                     });
                     localStorage.setItem('messenger_saved_accounts', JSON.stringify(accounts));
 
+                    // Cache update kora jate refresh marle na hareye jay
+                    let cachedUser = JSON.parse(localStorage.getItem('messenger_user_cache_' + currentUserId)) || {};
+                    cachedUser.avatar = newAvatarBase64;
+                    localStorage.setItem('messenger_user_cache_' + currentUserId, JSON.stringify(cachedUser));
+
                     alert('প্রোফাইল ছবি সফলভাবে আপডেট হয়েছে!');
                 } catch(error) {
                     alert('ছবি আপডেট করতে সমস্যা হয়েছে: ' + error.message);
@@ -334,6 +340,7 @@
             try {
                 await db.collection("users").doc(uniqueId).set(userData);
                 saveAccountToDevice(uniqueId, name, tempProfilePic);
+                localStorage.setItem('messenger_user_cache_' + uniqueId, JSON.stringify(userData));
                 loginUser(uniqueId);
             } catch(error) {
                 alert('Database error: ' + error.message);
@@ -354,21 +361,20 @@
 
                 let userFound = false;
                 let userId = "";
-                let userName = "";
-                let userAvatar = "";
+                let fullUserData = null;
                 
                 snapshot.forEach(doc => {
                     let data = doc.data();
                     if(data.password === password) {
                         userFound = true;
                         userId = doc.id;
-                        userName = data.name;
-                        userAvatar = data.avatar;
+                        fullUserData = data;
                     }
                 });
 
                 if(userFound) {
-                    saveAccountToDevice(userId, userName, userAvatar);
+                    saveAccountToDevice(userId, fullUserData.name, fullUserData.avatar);
+                    localStorage.setItem('messenger_user_cache_' + userId, JSON.stringify(fullUserData));
                     loginUser(userId);
                 } else {
                     alert('Bhul password!');
@@ -389,6 +395,9 @@
             if(heartbeatInterval) clearInterval(heartbeatInterval);
             if(unsubscribeMessages) unsubscribeMessages();
             
+            if(currentUserId) {
+                localStorage.removeItem('messenger_user_cache_' + currentUserId);
+            }
             localStorage.removeItem('messenger_current_user_id');
             currentUserId = null;
             activeChatFriendId = null;
@@ -482,6 +491,15 @@
                 return;
             }
             startHeartbeat();
+
+            // Prothome local cache theke instant load korbe jate refresh marle picture ba ID hareyena jay
+            let cachedUser = JSON.parse(localStorage.getItem('messenger_user_cache_' + currentUserId));
+            if(cachedUser) {
+                document.getElementById('myUserName').innerText = cachedUser.name;
+                document.getElementById('myUserId').innerText = "ID: " + cachedUser.id;
+                document.getElementById('myAvatarDisplay').src = cachedUser.avatar;
+            }
+
             try {
                 let doc = await db.collection("users").doc(currentUserId).get();
                 if(!doc.exists) {
@@ -493,9 +511,14 @@
                 document.getElementById('myUserId').innerText = "ID: " + user.id;
                 document.getElementById('myAvatarDisplay').src = user.avatar;
                 
+                // Cache update ebong save kora
+                localStorage.setItem('messenger_user_cache_' + currentUserId, JSON.stringify(user));
                 saveAccountToDevice(user.id, user.name, user.avatar);
                 loadChatList();
-            } catch(e) {}
+            } catch(e) {
+                // Jodi offline thake ba firebase error dey, tobe cache diye cholbe
+                loadChatList();
+            }
         }
 
         async function searchUser() {
@@ -503,6 +526,8 @@
             let resultDiv = document.getElementById('searchResult');
             let userDoc = await db.collection("users").doc(currentUserId).get();
             let user = userDoc.data();
+
+            if(!user) return;
 
             if(query === user.id) {
                 resultDiv.innerHTML = `<p style="font-size:12px; color:red;">Eta apnar nijei id!</p>`;
@@ -544,6 +569,7 @@
 
         async function loadRequestsList() {
             let userDoc = await db.collection("users").doc(currentUserId).get();
+            if(!userDoc.exists) return;
             let user = userDoc.data();
             let container = document.getElementById('tabRequests');
             container.innerHTML = '';
@@ -592,6 +618,7 @@
 
         async function loadFriendsList() {
             let userDoc = await db.collection("users").doc(currentUserId).get();
+            if(!userDoc.exists) return;
             let user = userDoc.data();
             let container = document.getElementById('tabFriends');
             container.innerHTML = '';
@@ -623,6 +650,7 @@
 
         async function loadChatList() {
             let userDoc = await db.collection("users").doc(currentUserId).get();
+            if(!userDoc.exists) return;
             let user = userDoc.data();
             let container = document.getElementById('tabChats');
             container.innerHTML = '';
@@ -728,7 +756,7 @@
                         let isMe = (msg.sender === currentUserId);
 
                         let div = document.createElement('div');
-                        div.className = `message-container ${isMe ? 'sent' : 'received'}`;
+                        div.className = `message-container ${isMe ? 'sent' : 'received'}};`;
                         
                         let deleteBtnHtml = isMe ? `<button class="delete-btn" onclick="deleteMessage('${chatKey}', '${msgId}')"><i class="fa-solid fa-trash"></i> Delete</button>` : '';
 
@@ -765,9 +793,11 @@
             return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         }
 
+        // Page load howar shomoy check korbe user already logged in ki na
         window.onload = function() {
             checkOnlineStatus();
-            if(currentUserId) {
+            if (currentUserId) {
+                // Jodi user login thake, tahoke sohrasori dashboard-e niye jabe, refresh marle ar home/login-e jabe na
                 switchView('dashboardView');
             } else {
                 switchView('signupView');
