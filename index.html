@@ -133,7 +133,6 @@
         <div id="dashboardView" class="view">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; background: #eef2ff; padding: 8px; border-radius: 8px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                    <!-- গোল ছবির সাথে ক্যামেরা আইকন ও ছবি বদলানোর অপশন -->
                     <div class="avatar-wrapper" onclick="document.getElementById('quickProfilePicInput').click()" title="প্রোফাইল ছবি পরিবর্তন করুন">
                         <img id="myAvatarDisplay" class="avatar-sm" src="" alt="">
                         <div class="edit-badge"><i class="fa-solid fa-camera"></i></div>
@@ -285,10 +284,12 @@
                 document.getElementById('myAvatarDisplay').src = newAvatarBase64;
 
                 try {
+                    // ফায়ারবেস ডেটাবেসে আপডেট করা
                     await db.collection("users").doc(currentUserId).update({
                         avatar: newAvatarBase64
                     });
 
+                    // সেভড অ্যাকাউন্ট লিস্ট আপডেট করা
                     let accounts = JSON.parse(localStorage.getItem('messenger_saved_accounts')) || [];
                     accounts = accounts.map(acc => {
                         if(acc.id === currentUserId) {
@@ -298,6 +299,7 @@
                     });
                     localStorage.setItem('messenger_saved_accounts', JSON.stringify(accounts));
 
+                    // লোকাল ক্যাশ আপডেট করা যাতে রিফ্রেশ করলে ছবি না হারায়
                     let cachedUser = JSON.parse(localStorage.getItem('messenger_user_cache_' + currentUserId)) || {};
                     cachedUser.avatar = newAvatarBase64;
                     localStorage.setItem('messenger_user_cache_' + currentUserId, JSON.stringify(cachedUser));
@@ -337,6 +339,7 @@
             };
 
             try {
+                // ফায়ারবেসে ইউজার সেভ করা (যাতে অ্যাকাউন্ট হারাবে না)
                 await db.collection("users").doc(uniqueId).set(userData);
                 saveAccountToDevice(uniqueId, name, tempProfilePic);
                 localStorage.setItem('messenger_user_cache_' + uniqueId, JSON.stringify(userData));
@@ -354,7 +357,7 @@
             try {
                 let snapshot = await db.collection("users").where("contact", "==", contact).get();
                 if(snapshot.empty) {
-                    alert('Kono account paoa jayni!');
+                    alert('এই নম্বর বা ইমেলের কোনো অ্যাকাউন্ট পাওয়া যায়নি!');
                     return;
                 }
 
@@ -376,7 +379,7 @@
                     localStorage.setItem('messenger_user_cache_' + userId, JSON.stringify(fullUserData));
                     loginUser(userId);
                 } else {
-                    alert('Bhul password!');
+                    alert('ভুল পাসওয়ার্ড দেওয়া হয়েছে!');
                 }
             } catch(error) {
                 alert('Login error: ' + error.message);
@@ -390,6 +393,7 @@
             switchView('dashboardView');
         }
 
+        // লগআউট করলে আইডি ফায়ারবেস থেকে মুছবে না, শুধু বর্তমান ডিভাইস সেশন ক্লিয়ার হবে
         function logoutUser() {
             if(heartbeatInterval) clearInterval(heartbeatInterval);
             if(unsubscribeMessages) unsubscribeMessages();
@@ -422,7 +426,7 @@
             let accounts = JSON.parse(localStorage.getItem('messenger_saved_accounts')) || [];
 
             if(accounts.length === 0) {
-                container.innerHTML = `<div style="font-size: 11px; color: #888; text-align: center;">Kono saved account nei</div>`;
+                container.innerHTML = `<div style="font-size: 11px; color: #888; text-align: center;">কোনো সেভ করা অ্যাকাউন্ট নেই</div>`;
                 return;
             }
 
@@ -497,6 +501,7 @@
             }
             startHeartbeat();
 
+            // লোকাল ক্যাশ থেকে ইনস্ট্যান্ট লোড হবে যাতে রিফ্রেশ করলে ছবি বা নাম চোখের পলকে চলে আসে
             let cachedUser = JSON.parse(localStorage.getItem('messenger_user_cache_' + currentUserId));
             if(cachedUser) {
                 document.getElementById('myUserName').innerText = cachedUser.name;
