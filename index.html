@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Messenger - Kamal (Online Check)</title>
+    <title>Messenger - Kamal (Online)</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -82,7 +82,7 @@
             <div class="sub-name">Kamal</div>
         </div>
 
-        <!-- লাল রঙের ওয়ার্নিং মেসেজ -->
+        <!-- লাল রঙের ওয়ার্নিং মেসেজ (ডাটা না থাকলে দেখাবে) -->
         <div id="offlineBanner">⚠️ ইন্টারনেটের সাথে সংযোগ নেই! দয়া করে মোবাইল ডাটা বা ওয়াইফাই চালু করুন।</div>
 
         <!-- ১. সাইন আপ স্ক্রিন -->
@@ -203,7 +203,7 @@
         let generatedOtp = "";
         let pendingUserData = {};
 
-        // ইন্টারনেট কানেকশন চেক করার ফাংশন
+        // ইন্টারনেট কানেকশন চেক ফাংশন
         function checkOnlineStatus() {
             const banner = document.getElementById('offlineBanner');
             if (!navigator.onLine) {
@@ -266,7 +266,6 @@
                 try {
                     await db.collection("users").doc(pendingUserData.id).set(pendingUserData);
                     loginUser(pendingUserData.id);
-                    alert('অ্যাকাউন্ট সফলভাবে ভেরিফাইড এবং তৈরি হয়েছে!');
                 } catch(error) {
                     alert('ডেটাবেস সেভ করতে সমস্যা হয়েছে: ' + error.message);
                 }
@@ -298,7 +297,7 @@
                     let data = doc.data();
                     if(data.password === password) {
                         userFound = true;
-                        userId = data.id;
+                        userId = doc.id; // ডকুমেণ্ট আইডি (যেমন #1023) ব্যবহার করা হলো
                     }
                 });
 
@@ -315,7 +314,6 @@
         function loginUser(id) {
             currentUserId = id;
             localStorage.setItem('messenger_current_user_id', currentUserId);
-            loadDashboard();
             switchView('dashboardView');
         }
 
@@ -329,7 +327,9 @@
             checkOnlineStatus();
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             document.getElementById(viewId).classList.add('active');
-            if(viewId === 'dashboardView') loadDashboard();
+            if(viewId === 'dashboardView') {
+                loadDashboard();
+            }
         }
 
         function switchTab(tabName) {
@@ -356,15 +356,25 @@
 
         async function loadDashboard() {
             if(!checkOnlineStatus()) return;
-            if(!currentUserId) return switchView('loginView');
-            let doc = await db.collection("users").doc(currentUserId).get();
-            if(!doc.exists) return switchView('loginView');
-            
-            let user = doc.data();
-            document.getElementById('myUserName').innerText = user.name;
-            document.getElementById('myUserId').innerText = "ID: " + user.id;
-            document.getElementById('myAvatarDisplay').src = user.avatar;
-            loadChatList();
+            if(!currentUserId) {
+                switchView('loginView');
+                return;
+            }
+            try {
+                let doc = await db.collection("users").doc(currentUserId).get();
+                if(!doc.exists) {
+                    logoutUser();
+                    return;
+                }
+                
+                let user = doc.data();
+                document.getElementById('myUserName').innerText = user.name;
+                document.getElementById('myUserId').innerText = "ID: " + user.id;
+                document.getElementById('myAvatarDisplay').src = user.avatar;
+                loadChatList();
+            } catch(e) {
+                console.error("Dashboard load error:", e);
+            }
         }
 
         async function searchUser() {
@@ -419,7 +429,7 @@
             let container = document.getElementById('tabRequests');
             container.innerHTML = '';
 
-            if(user.requests.length === 0) {
+            if(!user.requests || user.requests.length === 0) {
                 container.innerHTML = `<div style="text-align: center; color: #888; font-size: 12px; margin-top: 20px;">কোনো রিকোয়েস্ট নেই।</div>`;
                 return;
             }
@@ -466,7 +476,7 @@
             let container = document.getElementById('tabFriends');
             container.innerHTML = '';
 
-            if(user.friends.length === 0) {
+            if(!user.friends || user.friends.length === 0) {
                 container.innerHTML = `<div style="text-align: center; color: #888; font-size: 12px; margin-top: 20px;">আপনার কোনো ফ্রেন্ড নেই।</div>`;
                 return;
             }
@@ -491,7 +501,7 @@
             let container = document.getElementById('tabChats');
             container.innerHTML = '';
 
-            if(!user || user.friends.length === 0) {
+            if(!user || !user.friends || user.friends.length === 0) {
                 container.innerHTML = `<div style="text-align: center; color: #888; font-size: 12px; margin-top: 20px;">চ্যাট শুরু করতে ফ্রেন্ড যোগ করুন।</div>`;
                 return;
             }
@@ -557,9 +567,8 @@
         }
 
         window.onload = function() {
-            checkOnlineStatus();
+            if(!checkOnlineStatus()) return;
             if(currentUserId) {
-                loadDashboard();
                 switchView('dashboardView');
             } else {
                 switchView('loginView');
