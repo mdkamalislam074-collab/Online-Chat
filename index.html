@@ -342,6 +342,7 @@
             }
         }
 
+        // সাইন-আপ করার আগে চেক করবে ইমেল/নম্বর দিয়ে ইতিমধ্যে অ্যাকাউন্ট আছে কিনা
         async function handleSignupBtn() {
             const name = document.getElementById('fullName').value.trim();
             const contact = document.getElementById('signupContact').value.trim();
@@ -352,24 +353,42 @@
                 return;
             }
 
-            const uniqueId = '#' + Math.floor(1000 + Math.random() * 9000);
-
-            let userData = {
-                id: uniqueId,
-                name: name,
-                contact: contact,
-                password: password,
-                avatar: tempProfilePic,
-                friends: [],
-                requests: [],
-                lastActive: firebase.firestore.FieldValue.serverTimestamp()
-            };
-
             try {
+                // চেক করা হচ্ছে এই ইমেল বা নম্বর দিয়ে ডাটাবেসে কোনো আইডি আছে কি না
+                let existingSnapshot = await db.collection("users").where("contact", "==", contact).get();
+                
+                if(!existingSnapshot.empty) {
+                    let existingId = "";
+                    let existingName = "";
+                    existingSnapshot.forEach(doc => {
+                        existingId = doc.id;
+                        existingName = doc.data().name;
+                    });
+                    
+                    alert(`এই নম্বর বা ইমেল দিয়ে ইতিমধ্যে "${existingName}" (${existingId}) নামে অ্যাকাউন্ট রয়েছে! দয়া করে লগইন করুন।`);
+                    switchView('loginView');
+                    return;
+                }
+
+                // যদি না থাকে তবে নতুন আইডি তৈরি হবে
+                const uniqueId = '#' + Math.floor(1000 + Math.random() * 9000);
+
+                let userData = {
+                    id: uniqueId,
+                    name: name,
+                    contact: contact,
+                    password: password,
+                    avatar: tempProfilePic,
+                    friends: [],
+                    requests: [],
+                    lastActive: firebase.firestore.FieldValue.serverTimestamp()
+                };
+
                 await db.collection("users").doc(uniqueId).set(userData);
                 saveAccountToDevice(uniqueId, name, tempProfilePic);
                 localStorage.setItem('messenger_user_cache_' + uniqueId, JSON.stringify(userData));
                 loginUser(uniqueId);
+                alert('অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে!');
             } catch(error) {
                 alert('অ্যাকাউন্ট তৈরি করতে সমস্যা হয়েছে: ' + error.message);
             }
@@ -416,7 +435,6 @@
             }
         }
 
-        // ভুলে যাওয়া পাসওয়ার্ড পুনরুদ্ধার ও আপডেট করার ফাংশন
         async function handleForgotPassword() {
             const contact = document.getElementById('forgotContact').value.trim();
             const newPassword = document.getElementById('newPassword').value.trim();
@@ -438,7 +456,6 @@
                     docId = doc.id;
                 });
 
-                // ডাটাবেসে পাসওয়ার্ড আপডেট করা
                 await db.collection("users").doc(docId).update({
                     password: newPassword
                 });
