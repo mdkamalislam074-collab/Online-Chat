@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Messenger - Kamal (Online & Timer OTP)</title>
+    <title>Messenger - Kamal (Login & Signup)</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -28,8 +28,9 @@
         .input-field input { width: 100%; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 13px; background-color: #f9fafb; outline: none; }
         .btn { width: 100%; padding: 11px; background-color: #1d4ed8; color: #ffffff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 8px; }
         .btn:hover { background-color: #1e40af; }
-        .btn:disabled { background-color: #9ca3af; cursor: not-allowed; }
         .btn-secondary { background-color: #4b5563; }
+        .switch-text { text-align: center; font-size: 12px; color: #666; margin-top: 15px; cursor: pointer; }
+        .switch-text span { color: #1d4ed8; font-weight: 600; }
 
         /* Profile Pic & Online Glowing Green Border */
         .profile-pic-container { 
@@ -77,16 +78,28 @@
                 <input type="file" id="profilePicInput" style="display:none" accept="image/*" onchange="previewImage(event)">
                 
                 <div class="input-group"><label>Full Name</label><div class="input-field"><input type="text" id="fullName" placeholder="Enter name" required></div></div>
-                <div class="input-group"><label>Email Address or Mobile Number</label><div class="input-field"><input type="text" id="contactInfo" placeholder="Enter email or phone number" required></div></div>
-                <div class="input-group"><label>Password</label><div class="input-field"><input type="password" id="password" placeholder="Password" required></div></div>
+                <div class="input-group"><label>Mobile Number or Email</label><div class="input-field"><input type="text" id="signupContact" placeholder="Enter number or email" required></div></div>
+                <div class="input-group"><label>Password</label><div class="input-field"><input type="password" id="signupPassword" placeholder="Password" required></div></div>
                 <button type="submit" class="btn">Get Verification Code</button>
             </form>
+            <div class="switch-text" onclick="switchView('loginView')">Already have an account? <span>Login here</span></div>
         </div>
 
-        <!-- ২. ওটিপি ভেরিফিকেশন ও টাইম কাউন্টডাউন স্ক্রিন -->
+        <!-- ২. লগইন স্ক্রিন -->
+        <div id="loginView" class="view">
+            <h2 style="text-align:center; margin-bottom: 15px; font-size:18px;">Login to Messenger</h2>
+            <form onsubmit="handleLogin(event)">
+                <div class="input-group"><label>Mobile Number or Email</label><div class="input-field"><input type="text" id="loginContact" placeholder="Enter number or email" required></div></div>
+                <div class="input-group"><label>Password</label><div class="input-field"><input type="password" id="loginPassword" placeholder="Password" required></div></div>
+                <button type="submit" class="btn">Login</button>
+            </form>
+            <div class="switch-text" onclick="switchView('signupView')">Don't have an account? <span>Create Account</span></div>
+        </div>
+
+        <!-- ৩. ওটিপি ভেরিফিকেশন স্ক্রিন -->
         <div id="otpView" class="view">
             <h2 style="text-align:center; margin-bottom: 15px; font-size:18px;">Verify Account</h2>
-            <p style="font-size: 12px; color: #666; text-align: center; margin-bottom: 10px;">আপনার ভেরিফিকেশন কোডটি নিচে দেওয়া হলো (স্ক্রিন কোড):</p>
+            <p style="font-size: 12px; color: #666; text-align: center; margin-bottom: 10px;">আপনার ভেরিফিকেশন কোডটি নিচে দেওয়া হলো:</p>
             <div id="codeDisplayBox" style="background: #eef2ff; padding: 10px; text-align: center; font-size: 20px; font-weight: bold; color: #1d4ed8; border-radius: 8px; margin-bottom: 15px;"></div>
             
             <div class="input-group">
@@ -95,15 +108,9 @@
             </div>
             
             <button class="btn" onclick="verifyOtpCode()">Verify & Create Account</button>
-            
-            <!-- Timer and Resend Option -->
-            <div style="text-align: center; margin-top: 15px; font-size: 13px; color: #555;">
-                <span id="timerText">Resend code in <b id="countdown">60</b>s</span>
-                <button id="resendBtn" class="btn btn-secondary" style="display: none; margin-top: 5px;" onclick="resendOtpCode()">Resend Code</button>
-            </div>
         </div>
 
-        <!-- ৩. ড্যাশবোর্ড স্ক্রিন -->
+        <!-- ৪. ড্যাশবোর্ড স্ক্রিন -->
         <div id="dashboardView" class="view">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; background: #eef2ff; padding: 8px; border-radius: 8px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
@@ -138,7 +145,7 @@
             </div>
         </div>
 
-        <!-- ৪. চ্যাট রুম স্ক্রিন -->
+        <!-- ৫. চ্যাট রুম স্ক্রিন -->
         <div id="chatRoomView" class="view">
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px;">
                 <button class="btn" style="width: auto; margin-top:0; padding: 5px 10px; background:#6b7280;" onclick="switchView('dashboardView')"><i class="fa-solid fa-arrow-left"></i></button>
@@ -152,12 +159,11 @@
             </div>
         </div>
 
-        <!-- ৫. সেটিংস স্ক্রিন -->
+        <!-- ৬. সেটিংস স্ক্রিন -->
         <div id="settingsView" class="view">
             <h3 style="font-size: 15px; margin-bottom: 10px;">Settings & Accounts</h3>
-            <div id="accountList" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;"></div>
-            <button class="btn" onclick="switchView('signupView')">+ Add New Account</button>
-            <button class="btn btn-secondary" style="margin-top: 8px;" onclick="switchView('dashboardView')">Back to Dashboard</button>
+            <button class="btn btn-secondary" onclick="logoutUser()" style="background-color: #ef4444; margin-bottom: 8px;">Logout</button>
+            <button class="btn" onclick="switchView('dashboardView')">Back to Dashboard</button>
         </div>
     </div>
 
@@ -179,7 +185,6 @@
         let tempProfilePic = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
         let generatedOtp = "";
         let pendingUserData = {};
-        let countdownTimer = null;
 
         function previewImage(event) {
             const reader = new FileReader();
@@ -193,47 +198,24 @@
         function handleSignup(event) {
             event.preventDefault();
             const name = document.getElementById('fullName').value;
-            const contact = document.getElementById('contactInfo').value;
+            const contact = document.getElementById('signupContact').value;
+            const password = document.getElementById('signupPassword').value;
             const uniqueId = '#' + Math.floor(1000 + Math.random() * 9000);
+
+            generatedOtp = Math.floor(1000 + Math.random() * 9000).toString();
+            document.getElementById('codeDisplayBox').innerText = generatedOtp;
 
             pendingUserData = {
                 id: uniqueId,
                 name: name,
                 contact: contact,
+                password: password,
                 avatar: tempProfilePic,
                 friends: [],
                 requests: []
             };
 
-            sendNewOtp();
             switchView('otpView');
-        }
-
-        // ওটিপি কোড জেনারেট এবং টাইম কাউন্টডাউন শুরু করা
-        function sendNewOtp() {
-            generatedOtp = Math.floor(1000 + Math.random() * 9000).toString();
-            document.getElementById('codeDisplayBox').innerText = generatedOtp; // স্ক্রিনে কোড দেখাবে (নম্বরে SMS না গেলে এখান থেকে নিয়ে বসাতে পারবেন)
-            
-            let timeLeft = 60;
-            document.getElementById('countdown').innerText = timeLeft;
-            document.getElementById('timerText').style.display = 'block';
-            document.getElementById('resendBtn').style.display = 'none';
-
-            clearInterval(countdownTimer);
-            countdownTimer = setInterval(() => {
-                timeLeft--;
-                document.getElementById('countdown').innerText = timeLeft;
-                if(timeLeft <= 0) {
-                    clearInterval(countdownTimer);
-                    document.getElementById('timerText').style.display = 'none';
-                    document.getElementById('resendBtn').style.display = 'block';
-                }
-            }, 1000);
-        }
-
-        function resendOtpCode() {
-            sendNewOtp();
-            alert('নতুন ভেরিফিকেশন কোড জেনারেট করা হয়েছে!');
         }
 
         async function verifyOtpCode() {
@@ -247,11 +229,46 @@
             }
         }
 
+        // লগইন করার প্রক্রিয়া
+        async function handleLogin(event) {
+            event.preventDefault();
+            const contact = document.getElementById('loginContact').value.trim();
+            const password = document.getElementById('loginPassword').value.trim();
+
+            let snapshot = await db.collection("users").where("contact", "==", contact).get();
+            if(snapshot.empty) {
+                alert('এই নম্বর বা ইমেলের কোনো অ্যাকাউন্ট পাওয়া যায়নি!');
+                return;
+            }
+
+            let userFound = false;
+            let userId = "";
+            snapshot.forEach(doc => {
+                let data = doc.data();
+                if(data.password === password) {
+                    userFound = true;
+                    userId = data.id;
+                }
+            });
+
+            if(userFound) {
+                loginUser(userId);
+            } else {
+                alert('ভুল পাসওয়ার্ড দেওয়া হয়েছে!');
+            }
+        }
+
         function loginUser(id) {
             currentUserId = id;
             localStorage.setItem('messenger_current_user_id', currentUserId);
             loadDashboard();
             switchView('dashboardView');
+        }
+
+        function logoutUser() {
+            localStorage.removeItem('messenger_current_user_id');
+            currentUserId = null;
+            switchView('loginView');
         }
 
         function switchView(viewId) {
@@ -283,9 +300,9 @@
         }
 
         async function loadDashboard() {
-            if(!currentUserId) return switchView('signupView');
+            if(!currentUserId) return switchView('loginView');
             let doc = await db.collection("users").doc(currentUserId).get();
-            if(!doc.exists) return switchView('signupView');
+            if(!doc.exists) return switchView('loginView');
             
             let user = doc.data();
             document.getElementById('myUserName').innerText = user.name;
@@ -424,7 +441,7 @@
                     container.innerHTML += `
                         <div class="user-card" onclick="openChat('${friend.id}')" style="cursor:pointer;">
                             <div class="user-info-sm"><div class="avatar-wrapper"><img src="${friend.avatar}" class="avatar-sm"></div><div><div style="font-size:13px; font-weight:600;">${friend.name}</div><div style="font-size:11px; color:#22c55e; font-weight:600;">Active Now</div></div></div>
-                            <i class="fa-solid fa-chevron-right" style="font-size:12px; color:#aaa;">x</i>
+                            <i class="fa-solid fa-chevron-right" style="font-size:12px; color:#aaa;"></i>
                         </div>`;
                 }
             }
@@ -480,7 +497,7 @@
                 loadDashboard();
                 switchView('dashboardView');
             } else {
-                switchView('signupView');
+                switchView('loginView'); // প্রথমবার আসলে লগইন স্ক্রিন দেখাবে
             }
         }
     </script>
