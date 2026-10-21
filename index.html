@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Messenger - Kamal (Online)</title>
+    <title>Messenger - Kamal (Online Check)</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -14,7 +14,7 @@
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
         body { background-color: #f0f4f8; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
-        .app-container { background: #ffffff; width: 100%; max-width: 480px; padding: 25px; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); min-height: 600px; display: flex; flex-direction: column; justify-content: space-between; }
+        .app-container { background: #ffffff; width: 100%; max-width: 480px; padding: 25px; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); min-height: 600px; display: flex; flex-direction: column; justify-content: space-between; position: relative; }
         
         .app-header { text-align: center; margin-bottom: 15px; border-bottom: 1px solid #e5e7eb; padding-bottom: 10px; }
         .app-header h1 { color: #1d4ed8; font-size: 24px; font-weight: 700; }
@@ -31,6 +31,20 @@
         .btn-secondary { background-color: #4b5563; }
         .switch-text { text-align: center; font-size: 12px; color: #666; margin-top: 15px; cursor: pointer; }
         .switch-text span { color: #1d4ed8; font-weight: 600; }
+
+        /* Offline Red Alert Banner */
+        #offlineBanner {
+            display: none;
+            background-color: #fee2e2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+            padding: 10px;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
 
         /* Profile Pic & Online Glowing Green Border */
         .profile-pic-container { 
@@ -68,6 +82,9 @@
             <div class="sub-name">Kamal</div>
         </div>
 
+        <!-- লাল রঙের ওয়ার্নিং মেসেজ -->
+        <div id="offlineBanner">⚠️ ইন্টারনেটের সাথে সংযোগ নেই! দয়া করে মোবাইল ডাটা বা ওয়াইফাই চালু করুন।</div>
+
         <!-- ১. সাইন আপ স্ক্রিন -->
         <div id="signupView" class="view active">
             <h2 style="text-align:center; margin-bottom: 15px; font-size:18px;">Create Account</h2>
@@ -104,10 +121,10 @@
             
             <div class="input-group">
                 <label>Enter 4-Digit Code</label>
-                <div class="input-field"><input type="text" id="enteredOtp" placeholder="Enter code..." maxlength="4"></div>
+                <div class="input-field"><input type="text" id="enteredOtp" placeholder="Enter code..." maxlength="4" required></div>
             </div>
             
-            <button class="btn" onclick="verifyOtpCode()">Verify & Create Account</button>
+            <button type="button" class="btn" onclick="verifyOtpCode()">Verify & Create Account</button>
         </div>
 
         <!-- ৪. ড্যাশবোর্ড স্ক্রিন -->
@@ -186,6 +203,21 @@
         let generatedOtp = "";
         let pendingUserData = {};
 
+        // ইন্টারনেট কানেকশন চেক করার ফাংশন
+        function checkOnlineStatus() {
+            const banner = document.getElementById('offlineBanner');
+            if (!navigator.onLine) {
+                banner.style.display = 'block';
+                return false;
+            } else {
+                banner.style.display = 'none';
+                return true;
+            }
+        }
+
+        window.addEventListener('online', checkOnlineStatus);
+        window.addEventListener('offline', checkOnlineStatus);
+
         function previewImage(event) {
             const reader = new FileReader();
             reader.onload = function() {
@@ -197,6 +229,11 @@
 
         function handleSignup(event) {
             event.preventDefault();
+            if (!checkOnlineStatus()) {
+                alert('ইন্টারনেট সংযোগ না থাকায় অ্যাকাউন্ট তৈরি করা সম্ভব নয়!');
+                return;
+            }
+
             const name = document.getElementById('fullName').value;
             const contact = document.getElementById('signupContact').value;
             const password = document.getElementById('signupPassword').value;
@@ -219,6 +256,11 @@
         }
 
         async function verifyOtpCode() {
+            if (!checkOnlineStatus()) {
+                alert('ইন্টারনেট সংযোগ বিচ্ছিন্ন রয়েছে!');
+                return;
+            }
+
             const userOtp = document.getElementById('enteredOtp').value.trim();
             if(userOtp === generatedOtp) {
                 try {
@@ -235,6 +277,11 @@
 
         async function handleLogin(event) {
             event.preventDefault();
+            if (!checkOnlineStatus()) {
+                alert('ইন্টারনেট সংযোগ না থাকায় লগইন করা যাচ্ছে না!');
+                return;
+            }
+
             const contact = document.getElementById('loginContact').value.trim();
             const password = document.getElementById('loginPassword').value.trim();
 
@@ -279,6 +326,7 @@
         }
 
         function switchView(viewId) {
+            checkOnlineStatus();
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             document.getElementById(viewId).classList.add('active');
             if(viewId === 'dashboardView') loadDashboard();
@@ -307,6 +355,7 @@
         }
 
         async function loadDashboard() {
+            if(!checkOnlineStatus()) return;
             if(!currentUserId) return switchView('loginView');
             let doc = await db.collection("users").doc(currentUserId).get();
             if(!doc.exists) return switchView('loginView');
@@ -319,6 +368,7 @@
         }
 
         async function searchUser() {
+            if(!checkOnlineStatus()) return;
             let query = document.getElementById('searchInput').value.trim();
             let resultDiv = document.getElementById('searchResult');
             let userDoc = await db.collection("users").doc(currentUserId).get();
@@ -349,6 +399,7 @@
         }
 
         async function sendFriendRequest(targetId) {
+            if(!checkOnlineStatus()) return;
             let targetRef = db.collection("users").doc(targetId);
             let targetDoc = await targetRef.get();
             if(targetDoc.exists) {
@@ -362,6 +413,7 @@
         }
 
         async function loadRequestsList() {
+            if(!checkOnlineStatus()) return;
             let userDoc = await db.collection("users").doc(currentUserId).get();
             let user = userDoc.data();
             let container = document.getElementById('tabRequests');
@@ -386,6 +438,7 @@
         }
 
         async function acceptRequest(senderId) {
+            if(!checkOnlineStatus()) return;
             let userRef = db.collection("users").doc(currentUserId);
             let userDoc = await userRef.get();
             let user = userDoc.data();
@@ -407,6 +460,7 @@
         }
 
         async function loadFriendsList() {
+            if(!checkOnlineStatus()) return;
             let userDoc = await db.collection("users").doc(currentUserId).get();
             let user = userDoc.data();
             let container = document.getElementById('tabFriends');
@@ -431,6 +485,7 @@
         }
 
         async function loadChatList() {
+            if(!checkOnlineStatus()) return;
             let userDoc = await db.collection("users").doc(currentUserId).get();
             let user = userDoc.data();
             let container = document.getElementById('tabChats');
@@ -455,6 +510,7 @@
         }
 
         async function openChat(friendId) {
+            if(!checkOnlineStatus()) return;
             activeChatFriendId = friendId;
             let friendDoc = await db.collection("users").doc(friendId).get();
             let friend = friendDoc.data();
@@ -465,6 +521,7 @@
         }
 
         function sendMessage() {
+            if(!checkOnlineStatus()) return;
             let input = document.getElementById('messageInput');
             let text = input.value.trim();
             if(!text) return;
@@ -500,6 +557,7 @@
         }
 
         window.onload = function() {
+            checkOnlineStatus();
             if(currentUserId) {
                 loadDashboard();
                 switchView('dashboardView');
