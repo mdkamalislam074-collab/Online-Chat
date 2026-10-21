@@ -1,20 +1,20 @@
-<<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Messenger - Kamal (Online)</title>
+    <title>Messenger - Kamal (Full Features)</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- Firebase SDK (Online Database) -->
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
         body { background-color: #f0f4f8; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
-        .app-container { background: #ffffff; width: 100%; max-width: 480px; padding: 25px; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); min-height: 600px; display: flex; flex-direction: column; justify-content: space-between; }
+        .app-container { background: #ffffff; width: 100%; max-width: 480px; padding: 25px; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); min-height: 600px; display: flex; flex-direction: column; justify-content: space-between; position: relative; }
         
         .app-header { text-align: center; margin-bottom: 15px; border-bottom: 1px solid #e5e7eb; padding-bottom: 10px; }
         .app-header h1 { color: #1d4ed8; font-size: 24px; font-weight: 700; }
@@ -29,13 +29,28 @@
         .btn { width: 100%; padding: 11px; background-color: #1d4ed8; color: #ffffff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 8px; }
         .btn:hover { background-color: #1e40af; }
         .btn-secondary { background-color: #4b5563; }
-        .btn-danger { background-color: #ef4444; }
+        .switch-text { text-align: center; font-size: 12px; color: #666; margin-top: 15px; cursor: pointer; }
+        .switch-text span { color: #1d4ed8; font-weight: 600; }
+
+        /* Offline Red Alert Banner */
+        #offlineBanner {
+            display: none;
+            background-color: #fee2e2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+            padding: 10px;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
 
         /* Profile Pic & Online Glowing Green Border */
         .profile-pic-container { 
             width: 80px; height: 80px; border-radius: 50%; background: #eef2ff; margin: 0 auto 10px; 
             display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative;
-            border: 3px solid #22c55e; box-shadow: 0 0 10px rgba(34, 197, 94, 0.6);
+            border: 3px solid #22c55e; box-shadow: 0 0 10px rgba(34, 197, 94, 0.6); cursor: pointer;
         }
         .profile-pic-container img { width: 100%; height: 100%; object-fit: cover; }
 
@@ -67,6 +82,9 @@
             <div class="sub-name">Kamal</div>
         </div>
 
+        <!-- ইন্টারনেট না থাকলে লাল রঙের ওয়ার্নিং মেসেজ -->
+        <div id="offlineBanner">⚠️ ইন্টারনেটের সাথে সংযোগ নেই! দয়া করে মোবাইল ডাটা বা ওয়াইফাই চালু করুন।</div>
+
         <!-- ১. সাইন আপ স্ক্রিন -->
         <div id="signupView" class="view active">
             <h2 style="text-align:center; margin-bottom: 15px; font-size:18px;">Create Account</h2>
@@ -77,13 +95,25 @@
                 <input type="file" id="profilePicInput" style="display:none" accept="image/*" onchange="previewImage(event)">
                 
                 <div class="input-group"><label>Full Name</label><div class="input-field"><input type="text" id="fullName" placeholder="Enter name" required></div></div>
-                <div class="input-group"><label>Email Address</label><div class="input-field"><input type="email" id="email" placeholder="Enter email" required></div></div>
-                <div class="input-group"><label>Password</label><div class="input-field"><input type="password" id="password" placeholder="Password" required></div></div>
-                <button type="submit" class="btn">Sign Up & Connect Online</button>
+                <div class="input-group"><label>Mobile Number or Email</label><div class="input-field"><input type="text" id="signupContact" placeholder="Enter number or email" required></div></div>
+                <div class="input-group"><label>Password</label><div class="input-field"><input type="password" id="signupPassword" placeholder="Password" required></div></div>
+                <button type="submit" class="btn">Create Account</button>
             </form>
+            <div class="switch-text" onclick="switchView('loginView')">Already have an account? <span>Login here</span></div>
         </div>
 
-        <!-- ২. ড্যাশবোর্ড স্ক্রিন -->
+        <!-- ২. লগইন স্ক্রিন -->
+        <div id="loginView" class="view">
+            <h2 style="text-align:center; margin-bottom: 15px; font-size:18px;">Login to Messenger</h2>
+            <form onsubmit="handleLogin(event)">
+                <div class="input-group"><label>Mobile Number or Email</label><div class="input-field"><input type="text" id="loginContact" placeholder="Enter number or email" required></div></div>
+                <div class="input-group"><label>Password</label><div class="input-field"><input type="password" id="loginPassword" placeholder="Password" required></div></div>
+                <button type="submit" class="btn">Login</button>
+            </form>
+            <div class="switch-text" onclick="switchView('signupView')">Don't have an account? <span>Create Account</span></div>
+        </div>
+
+        <!-- ৩. ড্যাশবোর্ড স্ক্রিন (অ্যাপের ভিতরের মূল ফিচারসমূহ) -->
         <div id="dashboardView" class="view">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; background: #eef2ff; padding: 8px; border-radius: 8px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
@@ -96,6 +126,7 @@
                 <button class="btn" style="width: auto; padding: 5px 10px; font-size: 11px;" onclick="switchView('settingsView')"><i class="fa-solid fa-gear"></i> Settings</button>
             </div>
 
+            <!-- নেভিগেশন ট্যাবসমূহ -->
             <div class="nav-tabs">
                 <button class="nav-tab active" onclick="switchTab('chats')">Chats</button>
                 <button class="nav-tab" onclick="switchTab('friends')">Friends</button>
@@ -103,9 +134,16 @@
                 <button class="nav-tab" onclick="switchTab('search')">Search</button>
             </div>
 
+            <!-- চ্যাট লিস্ট ট্যাব -->
             <div id="tabChats" class="tab-content card-list"></div>
+            
+            <!-- ফ্রেন্ডস লিস্ট ট্যাব -->
             <div id="tabFriends" class="tab-content card-list" style="display:none;"></div>
+            
+            <!-- রিকোয়েস্ট ট্যাব -->
             <div id="tabRequests" class="tab-content card-list" style="display:none;"></div>
+            
+            <!-- সার্চ ট্যাব -->
             <div id="tabSearch" class="tab-content" style="display:none;">
                 <div class="input-group">
                     <label>Search by Unique ID (e.g. #1002)</label>
@@ -118,7 +156,7 @@
             </div>
         </div>
 
-        <!-- ৩. চ্যাট রুম স্ক্রিন -->
+        <!-- ৪. চ্যাট রুম স্ক্রিন -->
         <div id="chatRoomView" class="view">
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px;">
                 <button class="btn" style="width: auto; margin-top:0; padding: 5px 10px; background:#6b7280;" onclick="switchView('dashboardView')"><i class="fa-solid fa-arrow-left"></i></button>
@@ -132,17 +170,15 @@
             </div>
         </div>
 
-        <!-- ৪. সেটিংস স্ক্রিন -->
+        <!-- ৫. সেটিংস স্ক্রিন -->
         <div id="settingsView" class="view">
             <h3 style="font-size: 15px; margin-bottom: 10px;">Settings & Accounts</h3>
-            <div id="accountList" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;"></div>
-            <button class="btn" onclick="switchView('signupView')">+ Add New Account</button>
-            <button class="btn btn-secondary" style="margin-top: 8px;" onclick="switchView('dashboardView')">Back to Dashboard</button>
+            <button class="btn btn-secondary" onclick="logoutUser()" style="background-color: #ef4444; margin-bottom: 8px;">Logout</button>
+            <button class="btn" onclick="switchView('dashboardView')">Back to Dashboard</button>
         </div>
     </div>
 
     <script>
-        // আপনার ফায়ারবেস ক্লাউড ডেটাবেস কনফিগারেশন এখানে যুক্ত করতে হবে
         const firebaseConfig = {
             apiKey: "YOUR_API_KEY",
             authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
@@ -152,13 +188,27 @@
             appId: "YOUR_APP_ID"
         };
 
-        // ফায়ারবেস ইনিশিয়ালাইজ (অনলাইন সংযোগ)
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
         let currentUserId = localStorage.getItem('messenger_current_user_id') || null;
         let activeChatFriendId = null;
         let tempProfilePic = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
+
+        // ইন্টারনেট কানেকশন চেক ফাংশন
+        function checkOnlineStatus() {
+            const banner = document.getElementById('offlineBanner');
+            if (!navigator.onLine) {
+                banner.style.display = 'block';
+                return false;
+            } else {
+                banner.style.display = 'none';
+                return true;
+            }
+        }
+
+        window.addEventListener('online', checkOnlineStatus);
+        window.addEventListener('offline', checkOnlineStatus);
 
         function previewImage(event) {
             const reader = new FileReader();
@@ -169,37 +219,95 @@
             reader.readAsDataURL(event.target.files[0]);
         }
 
-        // অনলাইন ফায়ারবেসে অ্যাকাউন্ট সেভ করা
+        // সরাসরি অ্যাকাউন্ট তৈরি
         async function handleSignup(event) {
             event.preventDefault();
-            const name = document.getElementById('fullName').value;
-            const email = document.getElementById('email').value;
+            if (!checkOnlineStatus()) {
+                alert('ইন্টারনেট সংযোগ না থাকায় অ্যাকাউন্ট তৈরি করা সম্ভব নয়!');
+                return;
+            }
+
+            const name = document.getElementById('fullName').value.trim();
+            const contact = document.getElementById('signupContact').value.trim();
+            const password = document.getElementById('signupPassword').value.trim();
             const uniqueId = '#' + Math.floor(1000 + Math.random() * 9000);
 
-            const newUser = {
+            let userData = {
                 id: uniqueId,
                 name: name,
-                email: email,
+                contact: contact,
+                password: password,
                 avatar: tempProfilePic,
                 friends: [],
                 requests: []
             };
 
-            await db.collection("users").doc(uniqueId).set(newUser);
-            loginUser(uniqueId);
+            try {
+                await db.collection("users").doc(uniqueId).set(userData);
+                loginUser(uniqueId);
+                alert('অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে!');
+            } catch(error) {
+                alert('ডেটাবেস সেভ করতে সমস্যা হয়েছে: ' + error.message);
+            }
+        }
+
+        // লগইন প্রক্রিয়া
+        async function handleLogin(event) {
+            event.preventDefault();
+            if (!checkOnlineStatus()) {
+                alert('ইন্টারনেট সংযোগ না থাকায় লগইন করা যাচ্ছে না!');
+                return;
+            }
+
+            const contact = document.getElementById('loginContact').value.trim();
+            const password = document.getElementById('loginPassword').value.trim();
+
+            try {
+                let snapshot = await db.collection("users").where("contact", "==", contact).get();
+                if(snapshot.empty) {
+                    alert('এই নম্বর বা ইমেলের কোনো অ্যাকাউন্ট পাওয়া যায়নি!');
+                    return;
+                }
+
+                let userFound = false;
+                let userId = "";
+                snapshot.forEach(doc => {
+                    let data = doc.data();
+                    if(data.password === password) {
+                        userFound = true;
+                        userId = doc.id;
+                    }
+                });
+
+                if(userFound) {
+                    loginUser(userId);
+                } else {
+                    alert('ভুল পাসওয়ার্ড দেওয়া হয়েছে!');
+                }
+            } catch(error) {
+                alert('লগইন করতে সমস্যা হয়েছে: ' + error.message);
+            }
         }
 
         function loginUser(id) {
             currentUserId = id;
             localStorage.setItem('messenger_current_user_id', currentUserId);
-            loadDashboard();
             switchView('dashboardView');
         }
 
+        function logoutUser() {
+            localStorage.removeItem('messenger_current_user_id');
+            currentUserId = null;
+            switchView('loginView');
+        }
+
         function switchView(viewId) {
+            checkOnlineStatus();
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             document.getElementById(viewId).classList.add('active');
-            if(viewId === 'dashboardView') loadDashboard();
+            if(viewId === 'dashboardView') {
+                loadDashboard();
+            }
         }
 
         function switchTab(tabName) {
@@ -225,18 +333,30 @@
         }
 
         async function loadDashboard() {
-            if(!currentUserId) return switchView('signupView');
-            let doc = await db.collection("users").doc(currentUserId).get();
-            if(!doc.exists) return switchView('signupView');
-            
-            let user = doc.data();
-            document.getElementById('myUserName').innerText = user.name;
-            document.getElementById('myUserId').innerText = "ID: " + user.id;
-            document.getElementById('myAvatarDisplay').src = user.avatar;
-            loadChatList();
+            if(!checkOnlineStatus()) return;
+            if(!currentUserId) {
+                switchView('loginView');
+                return;
+            }
+            try {
+                let doc = await db.collection("users").doc(currentUserId).get();
+                if(!doc.exists) {
+                    logoutUser();
+                    return;
+                }
+                
+                let user = doc.data();
+                document.getElementById('myUserName').innerText = user.name;
+                document.getElementById('myUserId').innerText = "ID: " + user.id;
+                document.getElementById('myAvatarDisplay').src = user.avatar;
+                loadChatList();
+            } catch(e) {
+                console.error("Dashboard load error:", e);
+            }
         }
 
         async function searchUser() {
+            if(!checkOnlineStatus()) return;
             let query = document.getElementById('searchInput').value.trim();
             let resultDiv = document.getElementById('searchResult');
             let userDoc = await db.collection("users").doc(currentUserId).get();
@@ -267,6 +387,7 @@
         }
 
         async function sendFriendRequest(targetId) {
+            if(!checkOnlineStatus()) return;
             let targetRef = db.collection("users").doc(targetId);
             let targetDoc = await targetRef.get();
             if(targetDoc.exists) {
@@ -280,12 +401,13 @@
         }
 
         async function loadRequestsList() {
+            if(!checkOnlineStatus()) return;
             let userDoc = await db.collection("users").doc(currentUserId).get();
             let user = userDoc.data();
             let container = document.getElementById('tabRequests');
             container.innerHTML = '';
 
-            if(user.requests.length === 0) {
+            if(!user.requests || user.requests.length === 0) {
                 container.innerHTML = `<div style="text-align: center; color: #888; font-size: 12px; margin-top: 20px;">কোনো রিকোয়েস্ট নেই।</div>`;
                 return;
             }
@@ -304,6 +426,7 @@
         }
 
         async function acceptRequest(senderId) {
+            if(!checkOnlineStatus()) return;
             let userRef = db.collection("users").doc(currentUserId);
             let userDoc = await userRef.get();
             let user = userDoc.data();
@@ -325,12 +448,13 @@
         }
 
         async function loadFriendsList() {
+            if(!checkOnlineStatus()) return;
             let userDoc = await db.collection("users").doc(currentUserId).get();
             let user = userDoc.data();
             let container = document.getElementById('tabFriends');
             container.innerHTML = '';
 
-            if(user.friends.length === 0) {
+            if(!user.friends || user.friends.length === 0) {
                 container.innerHTML = `<div style="text-align: center; color: #888; font-size: 12px; margin-top: 20px;">আপনার কোনো ফ্রেন্ড নেই।</div>`;
                 return;
             }
@@ -349,12 +473,13 @@
         }
 
         async function loadChatList() {
+            if(!checkOnlineStatus()) return;
             let userDoc = await db.collection("users").doc(currentUserId).get();
             let user = userDoc.data();
             let container = document.getElementById('tabChats');
             container.innerHTML = '';
 
-            if(!user || user.friends.length === 0) {
+            if(!user || !user.friends || user.friends.length === 0) {
                 container.innerHTML = `<div style="text-align: center; color: #888; font-size: 12px; margin-top: 20px;">চ্যাট শুরু করতে ফ্রেন্ড যোগ করুন।</div>`;
                 return;
             }
@@ -373,6 +498,7 @@
         }
 
         async function openChat(friendId) {
+            if(!checkOnlineStatus()) return;
             activeChatFriendId = friendId;
             let friendDoc = await db.collection("users").doc(friendId).get();
             let friend = friendDoc.data();
@@ -382,8 +508,8 @@
             listenMessages();
         }
 
-        // রিয়েল-টাইম অনলাইন মেসেজ আদান-প্রদান
         function sendMessage() {
+            if(!checkOnlineStatus()) return;
             let input = document.getElementById('messageInput');
             let text = input.value.trim();
             if(!text) return;
@@ -419,11 +545,11 @@
         }
 
         window.onload = function() {
+            if(!checkOnlineStatus()) return;
             if(currentUserId) {
-                loadDashboard();
                 switchView('dashboardView');
             } else {
-                switchView('signupView');
+                switchView('loginView');
             }
         }
     </script>
