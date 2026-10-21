@@ -131,11 +131,11 @@
             <div class="switch-text" onclick="switchView('loginView')">Already have an account? <span>Login here</span></div>
         </div>
 
-        <!-- ২. লগইন স্ক্রিন -->
+        <!-- ২. লগইন স্ক্রিন (শুধু ইউজার আইডি দিয়ে) -->
         <div id="loginView" class="view">
             <h2 style="text-align:center; margin-bottom: 15px; font-size:18px;">Login to Messenger</h2>
             <div>
-                <div class="input-group"><label>Mobile Number or Email</label><div class="input-field"><input type="text" id="loginContact" placeholder="Enter number or email"></div></div>
+                <div class="input-group"><label>Unique User ID (e.g. #1327)</label><div class="input-field"><input type="text" id="loginUserId" placeholder="Enter User ID"></div></div>
                 
                 <div class="input-group">
                     <label>Password</label>
@@ -155,7 +155,7 @@
         <div id="forgotView" class="view">
             <h2 style="text-align:center; margin-bottom: 15px; font-size:18px;">Reset Password</h2>
             <div>
-                <div class="input-group"><label>Enter your Mobile Number or Email</label><div class="input-field"><input type="text" id="forgotContact" placeholder="Enter registered number or email"></div></div>
+                <div class="input-group"><label>Enter your Unique User ID (e.g. #1327)</label><div class="input-field"><input type="text" id="forgotUserId" placeholder="Enter User ID"></div></div>
                 
                 <div class="input-group">
                     <label>New Password</label>
@@ -384,7 +384,6 @@
             }
         }
 
-        // সাইন-আপ করার সময় যদি ইমেল/নম্বর আগে থেকে থাকে, তবে নতুন আইডি না বানিয়ে পুরোনো আইডি ফিরিয়ে আনবে
         async function handleSignupBtn() {
             const name = document.getElementById('fullName').value.trim();
             const contact = document.getElementById('signupContact').value.trim();
@@ -396,26 +395,6 @@
             }
 
             try {
-                let existingSnapshot = await db.collection("users").get();
-                let foundDocId = null;
-                let foundUserData = null;
-
-                existingSnapshot.forEach(doc => {
-                    let data = doc.data();
-                    if(data.contact && data.contact.toLowerCase() === contact.toLowerCase()) {
-                        foundDocId = doc.id;
-                        foundUserData = data;
-                    }
-                });
-
-                if(foundDocId) {
-                    alert(`এই নম্বর বা ইমেলের অ্যাকাউন্টটি আগে থেকেই রয়েছে (${foundDocId})! আপনার পুরোনো আইডি ফিরিয়ে আনা হলো।`);
-                    saveAccountToDevice(foundDocId, foundUserData.name, foundUserData.avatar);
-                    localStorage.setItem('messenger_user_cache_' + foundDocId, JSON.stringify(foundUserData));
-                    loginUser(foundDocId);
-                    return;
-                }
-
                 const uniqueId = '#' + Math.floor(1000 + Math.random() * 9000);
 
                 let userData = {
@@ -433,43 +412,41 @@
                 saveAccountToDevice(uniqueId, name, tempProfilePic);
                 localStorage.setItem('messenger_user_cache_' + uniqueId, JSON.stringify(userData));
                 loginUser(uniqueId);
-                alert('অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে!');
+                alert('অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে! আপনার আইডি: ' + uniqueId);
             } catch(error) {
                 alert('অ্যাকাউন্ট তৈরি করতে সমস্যা হয়েছে: ' + error.message);
             }
         }
 
-        // সঠিক ইমেল/নম্বর ও পাসওয়ার্ড দিয়ে পুরোনো আইডি লগইন করার ফাংশন
+        // লগইনের সময় শুধু ইউজার আইডি এবং পাসওয়ার্ড দিয়ে চেক করা
         async function handleLoginBtn() {
-            const contact = document.getElementById('loginContact').value.trim();
+            let userIdInput = document.getElementById('loginUserId').value.trim();
             const password = document.getElementById('loginPassword').value.trim();
 
-            if(!contact || !password) {
-                alert('দয়া করে নম্বর/ইমেল এবং পাসওয়ার্ড দিন!');
+            if(!userIdInput || !password) {
+                alert('দয়া করে ইউজার আইডি এবং পাসওয়ার্ড দিন!');
                 return;
             }
 
-            try {
-                let snapshot = await db.collection("users").get();
-                let userFound = false;
-                let userId = "";
-                let fullUserData = null;
-                
-                snapshot.forEach(doc => {
-                    let data = doc.data();
-                    if(data.contact && data.contact.toLowerCase() === contact.toLowerCase() && data.password === password) {
-                        userFound = true;
-                        userId = doc.id;
-                        fullUserData = data;
-                    }
-                });
+            // যদি হ্যাস (#) চিহ্ন না দেয়, তবে স্বয়ংক্রিয়ভাবে হ্যাস যুক্ত করে নেবে
+            if(!userIdInput.startsWith('#')) {
+                userIdInput = '#' + userIdInput;
+            }
 
-                if(userFound) {
-                    saveAccountToDevice(userId, fullUserData.name, fullUserData.avatar);
-                    localStorage.setItem('messenger_user_cache_' + userId, JSON.stringify(fullUserData));
-                    loginUser(userId);
+            try {
+                let userDoc = await db.collection("users").doc(userIdInput).get();
+                if(!userDoc.exists) {
+                    alert('এই ইউজার আইডি দিয়ে কোনো অ্যাকাউন্ট পাওয়া যায়নি!');
+                    return;
+                }
+
+                let userData = userDoc.data();
+                if(userData.password === password) {
+                    saveAccountToDevice(userIdInput, userData.name, userData.avatar);
+                    localStorage.setItem('messenger_user_cache_' + userIdInput, JSON.stringify(userData));
+                    loginUser(userIdInput);
                 } else {
-                    alert('এই নম্বর বা ইমেল অথবা পাসওয়ার্ড ভুল দেওয়া হয়েছে!');
+                    alert('ভুল পাসওয়ার্ড দেওয়া হয়েছে!');
                 }
             } catch(error) {
                 alert('লগইন করতে সমস্যা হয়েছে: ' + error.message);
@@ -477,37 +454,30 @@
         }
 
         async function handleForgotPassword() {
-            const contact = document.getElementById('forgotContact').value.trim();
+            let userIdInput = document.getElementById('forgotUserId').value.trim();
             const newPassword = document.getElementById('newPassword').value.trim();
 
-            if(!contact || !newPassword) {
-                alert('দয়া করে নম্বর/ইমেল এবং নতুন পাসওয়ার্ড দিন!');
+            if(!userIdInput || !newPassword) {
+                alert('দয়া করে ইউজার আইডি এবং নতুন পাসওয়ার্ড দিন!');
                 return;
             }
 
+            if(!userIdInput.startsWith('#')) {
+                userIdInput = '#' + userIdInput;
+            }
+
             try {
-                let snapshot = await db.collection("users").get();
-                let docId = "";
-                let found = false;
-
-                snapshot.forEach(doc => {
-                    let data = doc.data();
-                    if(data.contact && data.contact.toLowerCase() === contact.toLowerCase()) {
-                        docId = doc.id;
-                        found = true;
-                    }
-                });
-
-                if(!found) {
-                    alert('এই নম্বর বা ইমেল দিয়ে কোনো অ্যাকাউন্ট রেজিস্টার্ড করা নেই!');
+                let userDoc = await db.collection("users").doc(userIdInput).get();
+                if(!userDoc.exists) {
+                    alert('এই ইউজার আইডি দিয়ে কোনো অ্যাকাউন্ট পাওয়া যায়নি!');
                     return;
                 }
 
-                await db.collection("users").doc(docId).update({
+                await db.collection("users").doc(userIdInput).update({
                     password: newPassword
                 });
 
-                alert('পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে! এখন নতুন পাসওয়ার্ড দিয়ে লগইন করুন।');
+                alert('পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে! এখন এই আইডি ও নতুন পাসওয়ার্ড দিয়ে লগইন করুন।');
                 switchView('loginView');
             } catch(error) {
                 alert('পাসওয়ার্ড রিসেট করতে সমস্যা হয়েছে: ' + error.message);
@@ -525,7 +495,6 @@
             if(heartbeatInterval) clearInterval(heartbeatInterval);
             if(unsubscribeMessages) unsubscribeMessages();
             
-            // শুধু বর্তমান ডিভাইসের সেশন ক্লিয়ার হবে, ফায়ারবেসের অ্যাকাউন্ট মুছবে না
             localStorage.removeItem('messenger_current_user_id');
             localStorage.removeItem('messenger_current_view');
             localStorage.removeItem('messenger_active_chat');
