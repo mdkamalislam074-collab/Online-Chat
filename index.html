@@ -126,10 +126,22 @@
                 <div class="input-group"><label>Password</label><div class="input-field"><input type="password" id="loginPassword" placeholder="Password"></div></div>
                 <button type="button" class="btn" onclick="handleLoginBtn()">Login</button>
             </div>
+            <div class="switch-text" style="margin-top: 10px;" onclick="switchView('forgotView')"><span style="color: #dc2626;">Forgotten Password?</span></div>
             <div class="switch-text" onclick="switchView('signupView')">Don't have an account? <span>Create Account</span></div>
         </div>
 
-        <!-- ৩. ড্যাশবোর্ড স্ক্রিন -->
+        <!-- ৩. ফরগেট পাসওয়ার্ড স্ক্রিন -->
+        <div id="forgotView" class="view">
+            <h2 style="text-align:center; margin-bottom: 15px; font-size:18px;">Reset Password</h2>
+            <div>
+                <div class="input-group"><label>Enter your Mobile Number or Email</label><div class="input-field"><input type="text" id="forgotContact" placeholder="Enter registered number or email"></div></div>
+                <div class="input-group"><label>New Password</label><div class="input-field"><input type="password" id="newPassword" placeholder="Enter new password"></div></div>
+                <button type="button" class="btn" onclick="handleForgotPassword()">Update Password & Login</button>
+            </div>
+            <div class="switch-text" onclick="switchView('loginView')">Back to <span>Login</span></div>
+        </div>
+
+        <!-- ৪. ড্যাশবোর্ড স্ক্রিন -->
         <div id="dashboardView" class="view">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; background: #eef2ff; padding: 8px; border-radius: 8px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
@@ -169,7 +181,7 @@
             </div>
         </div>
 
-        <!-- ৪. চ্যাট রুম স্ক্রিন -->
+        <!-- ৫. চ্যাট রুম স্ক্রিন -->
         <div id="chatRoomView" class="view">
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px;">
                 <button class="btn" style="width: auto; margin-top:0; padding: 5px 10px; background:#6b7280;" onclick="switchView('dashboardView')"><i class="fa-solid fa-arrow-left"></i></button>
@@ -191,12 +203,12 @@
             </div>
         </div>
 
-        <!-- ৫. সেটিংস স্ক্রিন -->
+        <!-- ৬. সেটিংস স্ক্রিন -->
         <div id="settingsView" class="view">
             <h3 style="font-size: 15px; margin-bottom: 10px;">Settings & Accounts</h3>
             
             <div style="margin-bottom: 15px; background: #f3f4f6; padding: 10px; border-radius: 8px;">
-                <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; color: #374151;">Saved Accounts (একাধিক আইডি - মুছতেও পারবেন)</div>
+                <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; color: #374151;">Saved Accounts (একাধিক আইডি)</div>
                 <div id="savedAccountsList" style="display: flex; flex-direction: column; gap: 6px; max-height: 120px; overflow-y: auto;"></div>
             </div>
 
@@ -401,6 +413,40 @@
                 }
             } catch(error) {
                 alert('লগইন করতে সমস্যা হয়েছে: ' + error.message);
+            }
+        }
+
+        // ভুলে যাওয়া পাসওয়ার্ড পুনরুদ্ধার ও আপডেট করার ফাংশন
+        async function handleForgotPassword() {
+            const contact = document.getElementById('forgotContact').value.trim();
+            const newPassword = document.getElementById('newPassword').value.trim();
+
+            if(!contact || !newPassword) {
+                alert('দয়া করে নম্বর/ইমেল এবং নতুন পাসওয়ার্ড দিন!');
+                return;
+            }
+
+            try {
+                let snapshot = await db.collection("users").where("contact", "==", contact).get();
+                if(snapshot.empty) {
+                    alert('এই নম্বর বা ইমেল দিয়ে কোনো অ্যাকাউন্ট রেজিস্টার্ড করা নেই!');
+                    return;
+                }
+
+                let docId = "";
+                snapshot.forEach(doc => {
+                    docId = doc.id;
+                });
+
+                // ডাটাবেসে পাসওয়ার্ড আপডেট করা
+                await db.collection("users").doc(docId).update({
+                    password: newPassword
+                });
+
+                alert('পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে! এখন নতুন পাসওয়ার্ড দিয়ে লগইন করুন।');
+                switchView('loginView');
+            } catch(error) {
+                alert('পাসওয়ার্ড রিসেট করতে সমস্যা হয়েছে: ' + error.message);
             }
         }
 
