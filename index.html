@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Messenger - Kamal (Online)</title>
+    <title>Messenger - Kamal (Online & OTP)</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- Firebase SDK (Online Database) -->
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
@@ -29,7 +29,6 @@
         .btn { width: 100%; padding: 11px; background-color: #1d4ed8; color: #ffffff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 8px; }
         .btn:hover { background-color: #1e40af; }
         .btn-secondary { background-color: #4b5563; }
-        .btn-danger { background-color: #ef4444; }
 
         /* Profile Pic & Online Glowing Green Border */
         .profile-pic-container { 
@@ -77,13 +76,24 @@
                 <input type="file" id="profilePicInput" style="display:none" accept="image/*" onchange="previewImage(event)">
                 
                 <div class="input-group"><label>Full Name</label><div class="input-field"><input type="text" id="fullName" placeholder="Enter name" required></div></div>
-                <div class="input-group"><label>Email Address</label><div class="input-field"><input type="email" id="email" placeholder="Enter email" required></div></div>
+                <div class="input-group"><label>Email Address or Mobile Number</label><div class="input-field"><input type="text" id="contactInfo" placeholder="Enter email or phone number" required></div></div>
                 <div class="input-group"><label>Password</label><div class="input-field"><input type="password" id="password" placeholder="Password" required></div></div>
-                <button type="submit" class="btn">Sign Up & Connect Online</button>
+                <button type="submit" class="btn">Get Verification Code</button>
             </form>
         </div>
 
-        <!-- ২. ড্যাশবোর্ড স্ক্রিন -->
+        <!-- ২. ওটিপি ভেরিফিকেশন স্ক্রিন -->
+        <div id="otpView" class="view">
+            <h2 style="text-align:center; margin-bottom: 15px; font-size:18px;">Verify Account</h2>
+            <p style="font-size: 12px; color: #666; text-align: center; margin-bottom: 15px;">আপনার ইমেল বা নম্বরে পাঠানো ৪ ডিজিটের ভেরিফিকেশন কোডটি দিন।<br><b id="sentOtpDisplay" style="color:#1d4ed8;"></b></p>
+            <div class="input-group">
+                <label>Enter 4-Digit Code</label>
+                <div class="input-field"><input type="text" id="enteredOtp" placeholder="Enter code..." maxlength="4"></div>
+            </div>
+            <button class="btn" onclick="verifyOtpCode()">Verify & Create Account</button>
+        </div>
+
+        <!-- ৩. ড্যাশবোর্ড স্ক্রিন -->
         <div id="dashboardView" class="view">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; background: #eef2ff; padding: 8px; border-radius: 8px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
@@ -118,7 +128,7 @@
             </div>
         </div>
 
-        <!-- ৩. চ্যাট রুম স্ক্রিন -->
+        <!-- ৪. চ্যাট রুম স্ক্রিন -->
         <div id="chatRoomView" class="view">
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px;">
                 <button class="btn" style="width: auto; margin-top:0; padding: 5px 10px; background:#6b7280;" onclick="switchView('dashboardView')"><i class="fa-solid fa-arrow-left"></i></button>
@@ -132,7 +142,7 @@
             </div>
         </div>
 
-        <!-- ৪. সেটিংস স্ক্রিন -->
+        <!-- ৫. সেটিংস স্ক্রিন -->
         <div id="settingsView" class="view">
             <h3 style="font-size: 15px; margin-bottom: 10px;">Settings & Accounts</h3>
             <div id="accountList" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;"></div>
@@ -142,7 +152,6 @@
     </div>
 
     <script>
-        // আপনার ফায়ারবেস ক্লাউড ডেটাবেস কনফিগারেশন এখানে যুক্ত করতে হবে
         const firebaseConfig = {
             apiKey: "YOUR_API_KEY",
             authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
@@ -152,13 +161,14 @@
             appId: "YOUR_APP_ID"
         };
 
-        // ফায়ারবেস ইনিশিয়ালাইজ (অনলাইন সংযোগ)
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
         let currentUserId = localStorage.getItem('messenger_current_user_id') || null;
         let activeChatFriendId = null;
         let tempProfilePic = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
+        let generatedOtp = "";
+        let pendingUserData = {};
 
         function previewImage(event) {
             const reader = new FileReader();
@@ -169,24 +179,40 @@
             reader.readAsDataURL(event.target.files[0]);
         }
 
-        // অনলাইন ফায়ারবেসে অ্যাকাউন্ট সেভ করা
-        async function handleSignup(event) {
+        // সাইন আপ সাবমিট করার পর ওটিপি কোড জেনারেট করা
+        function handleSignup(event) {
             event.preventDefault();
             const name = document.getElementById('fullName').value;
-            const email = document.getElementById('email').value;
+            const contact = document.getElementById('contactInfo').value;
             const uniqueId = '#' + Math.floor(1000 + Math.random() * 9000);
 
-            const newUser = {
+            // ৪ ডিজিটের র্যান্ডম ওটিপি কোড তৈরি (টেস্ট করার জন্য স্ক্রিনে শো করবে)
+            generatedOtp = Math.floor(1000 + Math.random() * 9000).toString();
+            
+            pendingUserData = {
                 id: uniqueId,
                 name: name,
-                email: email,
+                contact: contact,
                 avatar: tempProfilePic,
                 friends: [],
                 requests: []
             };
 
-            await db.collection("users").doc(uniqueId).set(newUser);
-            loginUser(uniqueId);
+            document.getElementById('sentOtpDisplayinnerText').innerText = '';
+            alert(`আপনার ভেরিফিকেশন কোডটি হলো: ${generatedOtp}`); // টেস্ট করার জন্য অ্যালার্টে কোডটি দেখানো হবে
+            switchView('otpView');
+        }
+
+        // কোড যাচাই করে ফায়ারবেসে অ্যাকাউন্ট সেভ করা
+        async function verifyOtpCode() {
+            const userOtp = document.getElementById('enteredOtp').value.trim();
+            if(userOtp === generatedOtp) {
+                await db.collection("users").doc(pendingUserData.id).set(pendingUserData);
+                loginUser(pendingUserData.id);
+                alert('অ্যাকাউন্ট সফলভাবে ভেরিফাইড এবং তৈরি হয়েছে!');
+            } else {
+                alert('ভুল কোড দিয়েছেন! আবার চেষ্টা করুন।');
+            }
         }
 
         function loginUser(id) {
@@ -382,7 +408,6 @@
             listenMessages();
         }
 
-        // রিয়েল-টাইম অনলাইন মেসেজ আদান-প্রদান
         function sendMessage() {
             let input = document.getElementById('messageInput');
             let text = input.value.trim();
