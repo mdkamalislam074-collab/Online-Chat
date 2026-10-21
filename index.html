@@ -26,7 +26,6 @@
         .input-group { margin-bottom: 12px; }
         .input-group label { display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 4px; }
         
-        /* পাসওয়ার্ড ফিল্ড ও চোখ আইকন স্টাইল */
         .password-wrapper { position: relative; display: flex; align-items: center; }
         .password-wrapper input { width: 100%; padding: 10px 40px 10px 12px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 13px; background-color: #f9fafb; outline: none; }
         .eye-icon { position: absolute; right: 12px; cursor: pointer; color: #6b7280; font-size: 14px; }
@@ -268,7 +267,6 @@
         let unsubscribeMessages = null;
         let heartbeatInterval = null;
 
-        // পাসওয়ার্ড দেখানোর বা লুকানোর ফাংশন (চোখ বাটন)
         function togglePassword(fieldId, icon) {
             const inputField = document.getElementById(fieldId);
             if (inputField.type === "password") {
@@ -386,6 +384,7 @@
             }
         }
 
+        // সাইন-আপ করার সময় যদি ইমেল/নম্বর আগে থেকে থাকে, তবে নতুন আইডি না বানিয়ে পুরোনো আইডি ফিরিয়ে আনবে
         async function handleSignupBtn() {
             const name = document.getElementById('fullName').value.trim();
             const contact = document.getElementById('signupContact').value.trim();
@@ -410,7 +409,7 @@
                 });
 
                 if(foundDocId) {
-                    alert(`এই নম্বর বা ইমেলের অ্যাকাউন্টটি আগে থেকেই রয়েছে! আপনার পুরোনো আইডি ফিরিয়ে আনা হলো।`);
+                    alert(`এই নম্বর বা ইমেলের অ্যাকাউন্টটি আগে থেকেই রয়েছে (${foundDocId})! আপনার পুরোনো আইডি ফিরিয়ে আনা হলো।`);
                     saveAccountToDevice(foundDocId, foundUserData.name, foundUserData.avatar);
                     localStorage.setItem('messenger_user_cache_' + foundDocId, JSON.stringify(foundUserData));
                     loginUser(foundDocId);
@@ -440,6 +439,7 @@
             }
         }
 
+        // সঠিক ইমেল/নম্বর ও পাসওয়ার্ড দিয়ে পুরোনো আইডি লগইন করার ফাংশন
         async function handleLoginBtn() {
             const contact = document.getElementById('loginContact').value.trim();
             const password = document.getElementById('loginPassword').value.trim();
@@ -525,9 +525,7 @@
             if(heartbeatInterval) clearInterval(heartbeatInterval);
             if(unsubscribeMessages) unsubscribeMessages();
             
-            if(currentUserId) {
-                localStorage.removeItem('messenger_user_cache_' + currentUserId);
-            }
+            // শুধু বর্তমান ডিভাইসের সেশন ক্লিয়ার হবে, ফায়ারবেসের অ্যাকাউন্ট মুছবে না
             localStorage.removeItem('messenger_current_user_id');
             localStorage.removeItem('messenger_current_view');
             localStorage.removeItem('messenger_active_chat');
