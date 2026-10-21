@@ -93,9 +93,9 @@
             <div class="sub-name">Kamal</div>
         </div>
 
-        <div id="offlineBanner">⚠️ Interenter sathe connection nei!</div>
+        <div id="offlineBanner">⚠️ ইন্টারনেটের সাথে সংযোগ নেই!</div>
 
-        <!-- 1. Signup View -->
+        <!-- ১. সাইন আপ স্ক্রিন -->
         <div id="signupView" class="view active">
             <h2 style="text-align:center; margin-bottom: 15px; font-size:18px;">Create Account</h2>
             <form onsubmit="handleSignup(event)">
@@ -112,7 +112,7 @@
             <div class="switch-text" onclick="switchView('loginView')">Already have an account? <span>Login here</span></div>
         </div>
 
-        <!-- 2. Login View -->
+        <!-- ২. লগইন স্ক্রিন -->
         <div id="loginView" class="view">
             <h2 style="text-align:center; margin-bottom: 15px; font-size:18px;">Login to Messenger</h2>
             <form onsubmit="handleLogin(event)">
@@ -123,7 +123,7 @@
             <div class="switch-text" onclick="switchView('signupView')">Don't have an account? <span>Create Account</span></div>
         </div>
 
-        <!-- 3. Dashboard View -->
+        <!-- ৩. ড্যাশবোর্ড স্ক্রিন -->
         <div id="dashboardView" class="view">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; background: #eef2ff; padding: 8px; border-radius: 8px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
@@ -161,7 +161,7 @@
             </div>
         </div>
 
-        <!-- 4. Chat Room View -->
+        <!-- ৪. চ্যাট রুম স্ক্রিন -->
         <div id="chatRoomView" class="view">
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px;">
                 <button class="btn" style="width: auto; margin-top:0; padding: 5px 10px; background:#6b7280;" onclick="switchView('dashboardView')"><i class="fa-solid fa-arrow-left"></i></button>
@@ -183,10 +183,25 @@
             </div>
         </div>
 
-        <!-- 5. Settings View -->
+        <!-- ৫. সেটিংস স্ক্রিন -->
         <div id="settingsView" class="view">
             <h3 style="font-size: 15px; margin-bottom: 10px;">Settings & Accounts</h3>
-            <button class="btn btn-secondary" onclick="logoutUser()" style="background-color: #ef4444; margin-bottom: 8px;">Logout</button>
+            
+            <div style="text-align: center; margin-bottom: 15px; background: #f3f4f6; padding: 12px; border-radius: 12px;">
+                <div class="profile-pic-container" onclick="document.getElementById('updateProfilePicInput').click()" style="margin: 0 auto 8px; width: 70px; height: 70px;">
+                    <img id="settingsProfileImg" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="Profile">
+                </div>
+                <input type="file" id="updateProfilePicInput" style="display:none" accept="image/*" onchange="updateProfilePicture(event)">
+                <div style="font-size: 11px; color: #4b5563; font-weight: 600;">প্রোফাইল ছবি বদলাতে ছবির ওপর ক্লিক করুন</div>
+            </div>
+
+            <div style="margin-bottom: 15px; background: #f3f4f6; padding: 10px; border-radius: 8px;">
+                <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; color: #374151;">Saved Accounts (একাধিক আইডি)</div>
+                <div id="savedAccountsList" style="display: flex; flex-direction: column; gap: 6px; max-height: 100px; overflow-y: auto;"></div>
+            </div>
+
+            <button class="btn btn-secondary" onclick="addNewAccount()" style="background-color: #059669; margin-bottom: 8px;"><i class="fa-solid fa-user-plus"></i> Add Another Account</button>
+            <button class="btn btn-secondary" onclick="logoutUser()" style="background-color: #ef4444; margin-bottom: 8px;"><i class="fa-solid fa-right-from-bracket"></i> Logout Current Account</button>
             <button class="btn" onclick="switchView('dashboardView')">Back to Dashboard</button>
         </div>
     </div>
@@ -257,6 +272,47 @@
             }
         }
 
+        async function updateProfilePicture(event) {
+            const file = event.target.files[0];
+            if(!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function() {
+                const newAvatarBase64 = reader.result;
+                
+                document.getElementById('settingsProfileImg').src = newAvatarBase64;
+                document.getElementById('myAvatarDisplay').src = newAvatarBase64;
+
+                try {
+                    await db.collection("users").doc(currentUserId).update({
+                        avatar: newAvatarBase64
+                    });
+
+                    let accounts = JSON.parse(localStorage.getItem('messenger_saved_accounts')) || [];
+                    accounts = accounts.map(acc => {
+                        if(acc.id === currentUserId) {
+                            acc.avatar = newAvatarBase64;
+                        }
+                        return acc;
+                    });
+                    localStorage.setItem('messenger_saved_accounts', JSON.stringify(accounts));
+
+                    alert('প্রোফাইল ছবি সফলভাবে আপডেট হয়েছে!');
+                } catch(error) {
+                    alert('ছবি আপডেট করতে সমস্যা হয়েছে: ' + error.message);
+                }
+            }
+            reader.readAsDataURL(file);
+        }
+
+        function saveAccountToDevice(id, name, avatar) {
+            let accounts = JSON.parse(localStorage.getItem('messenger_saved_accounts')) || [];
+            if(!accounts.some(acc => acc.id === id)) {
+                accounts.push({ id, name, avatar });
+                localStorage.setItem('messenger_saved_accounts', JSON.stringify(accounts));
+            }
+        }
+
         async function handleSignup(event) {
             event.preventDefault();
             const name = document.getElementById('fullName').value.trim();
@@ -275,13 +331,10 @@
                 lastActive: firebase.firestore.FieldValue.serverTimestamp()
             };
 
-            localStorage.setItem('messenger_current_user_id', uniqueId);
-            currentUserId = uniqueId;
-            
             try {
                 await db.collection("users").doc(uniqueId).set(userData);
-                startHeartbeat();
-                switchView('dashboardView');
+                saveAccountToDevice(uniqueId, name, tempProfilePic);
+                loginUser(uniqueId);
             } catch(error) {
                 alert('Database error: ' + error.message);
             }
@@ -301,15 +354,21 @@
 
                 let userFound = false;
                 let userId = "";
+                let userName = "";
+                let userAvatar = "";
+                
                 snapshot.forEach(doc => {
                     let data = doc.data();
                     if(data.password === password) {
                         userFound = true;
                         userId = doc.id;
+                        userName = data.name;
+                        userAvatar = data.avatar;
                     }
                 });
 
                 if(userFound) {
+                    saveAccountToDevice(userId, userName, userAvatar);
                     loginUser(userId);
                 } else {
                     alert('Bhul password!');
@@ -326,26 +385,75 @@
             switchView('dashboardView');
         }
 
-        async function logoutUser() {
-            if(currentUserId) {
-                try {
-                    await db.collection("users").doc(currentUserId).update({ lastActive: null });
-                } catch(e) {}
-            }
-            localStorage.removeItem('messenger_current_user_id');
-            currentUserId = null;
+        function logoutUser() {
             if(heartbeatInterval) clearInterval(heartbeatInterval);
             if(unsubscribeMessages) unsubscribeMessages();
+            
+            localStorage.removeItem('messenger_current_user_id');
+            currentUserId = null;
+            activeChatFriendId = null;
+            
             switchView('loginView');
+        }
+
+        function addNewAccount() {
+            if(heartbeatInterval) clearInterval(heartbeatInterval);
+            if(unsubscribeMessages) unsubscribeMessages();
+            localStorage.removeItem('messenger_current_user_id');
+            currentUserId = null;
+            switchView('signupView');
+        }
+
+        function loadSavedAccountsList() {
+            let container = document.getElementById('savedAccountsList');
+            container.innerHTML = '';
+            let accounts = JSON.parse(localStorage.getItem('messenger_saved_accounts')) || [];
+
+            if(accounts.length === 0) {
+                container.innerHTML = `<div style="font-size: 11px; color: #888; text-align: center;">Kono saved account nei</div>`;
+                return;
+            }
+
+            accounts.forEach(acc => {
+                let isCurrent = (acc.id === currentUserId);
+                container.innerHTML += `
+                    <div style="display: flex; align-items: center; justify-content: space-between; background: #fff; padding: 6px 8px; border-radius: 6px; border: 1px solid #e5e7eb;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <img src="${acc.avatar}" style="width: 25px; height: 25px; border-radius: 50%; object-fit: cover;">
+                            <div>
+                                <div style="font-size: 11px; font-weight: 600;">${acc.name}</div>
+                                <div style="font-size: 9px; color: #666;">${acc.id}</div>
+                            </div>
+                        </div>
+                        ${isCurrent ? '<span style="font-size: 10px; color: #10b981; font-weight: 600;">Active</span>' : `<button class="btn" style="width: auto; margin:0; padding: 2px 6px; font-size: 10px;" onclick="switchToAccount('${acc.id}')">Switch</button>`}
+                    </div>
+                `;
+            });
+        }
+
+        function switchToAccount(id) {
+            if(unsubscribeMessages) unsubscribeMessages();
+            if(heartbeatInterval) clearInterval(heartbeatInterval);
+            currentUserId = id;
+            localStorage.setItem('messenger_current_user_id', currentUserId);
+            startHeartbeat();
+            switchView('dashboardView');
         }
 
         function switchView(viewId) {
             checkOnlineStatus();
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             document.getElementById(viewId).classList.add('active');
+            
             if(viewId === 'dashboardView') {
                 if(unsubscribeMessages) unsubscribeMessages();
                 loadDashboard();
+            } else if(viewId === 'settingsView') {
+                loadSavedAccountsList();
+                let myAvatar = document.getElementById('myAvatarDisplay').src;
+                if(myAvatar) {
+                    document.getElementById('settingsProfileImg').src = myAvatar;
+                }
             }
         }
 
@@ -384,6 +492,8 @@
                 document.getElementById('myUserName').innerText = user.name;
                 document.getElementById('myUserId').innerText = "ID: " + user.id;
                 document.getElementById('myAvatarDisplay').src = user.avatar;
+                
+                saveAccountToDevice(user.id, user.name, user.avatar);
                 loadChatList();
             } catch(e) {}
         }
@@ -577,7 +687,6 @@
             input.value = '';
         }
 
-        // চ্যাট বক্সে ছবি পাঠানোর ফাংশন
         function sendChatImage(event) {
             const file = event.target.files[0];
             if(!file) return;
@@ -595,7 +704,7 @@
                 });
             }
             reader.readAsDataURL(file);
-            event.target.value = ''; // Reset input
+            event.target.value = '';
         }
 
         function handleKeyPress(event) {
@@ -612,7 +721,7 @@
             unsubscribeMessages = db.collection("chats").doc(chatKey).collection("messages")
                 .orderBy("timestamp", "asc")
                 .onSnapshot(snapshot => {
-                    chatBox.innerHTML = '';
+                    chatBox.innerHTML = ``;
                     snapshot.forEach(doc => {
                         let msg = doc.data();
                         let msgId = doc.id;
