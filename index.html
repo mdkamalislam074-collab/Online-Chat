@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Messenger - Kamal (Online)</title>
+    <title>Messenger - Kamal (Direct Login/Signup)</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -82,7 +82,7 @@
             <div class="sub-name">Kamal</div>
         </div>
 
-        <!-- লাল রঙের ওয়ার্নিং মেসেজ (ডাটা না থাকলে দেখাবে) -->
+        <!-- ইন্টারনেট না থাকলে লাল রঙের ওয়ার্নিং মেসেজ -->
         <div id="offlineBanner">⚠️ ইন্টারনেটের সাথে সংযোগ নেই! দয়া করে মোবাইল ডাটা বা ওয়াইফাই চালু করুন।</div>
 
         <!-- ১. সাইন আপ স্ক্রিন -->
@@ -97,7 +97,7 @@
                 <div class="input-group"><label>Full Name</label><div class="input-field"><input type="text" id="fullName" placeholder="Enter name" required></div></div>
                 <div class="input-group"><label>Mobile Number or Email</label><div class="input-field"><input type="text" id="signupContact" placeholder="Enter number or email" required></div></div>
                 <div class="input-group"><label>Password</label><div class="input-field"><input type="password" id="signupPassword" placeholder="Password" required></div></div>
-                <button type="submit" class="btn">Get Verification Code</button>
+                <button type="submit" class="btn">Create Account</button>
             </form>
             <div class="switch-text" onclick="switchView('loginView')">Already have an account? <span>Login here</span></div>
         </div>
@@ -113,21 +113,7 @@
             <div class="switch-text" onclick="switchView('signupView')">Don't have an account? <span>Create Account</span></div>
         </div>
 
-        <!-- ৩. ওটিপি ভেরিফিকেশন স্ক্রিন -->
-        <div id="otpView" class="view">
-            <h2 style="text-align:center; margin-bottom: 15px; font-size:18px;">Verify Account</h2>
-            <p style="font-size: 12px; color: #666; text-align: center; margin-bottom: 10px;">আপনার ভেরিফিকেশন কোডটি নিচে দেওয়া হলো:</p>
-            <div id="codeDisplayBox" style="background: #eef2ff; padding: 10px; text-align: center; font-size: 20px; font-weight: bold; color: #1d4ed8; border-radius: 8px; margin-bottom: 15px;"></div>
-            
-            <div class="input-group">
-                <label>Enter 4-Digit Code</label>
-                <div class="input-field"><input type="text" id="enteredOtp" placeholder="Enter code..." maxlength="4" required></div>
-            </div>
-            
-            <button type="button" class="btn" onclick="verifyOtpCode()">Verify & Create Account</button>
-        </div>
-
-        <!-- ৪. ড্যাশবোর্ড স্ক্রিন -->
+        <!-- ৩. ড্যাশবোর্ড স্ক্রিন -->
         <div id="dashboardView" class="view">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; background: #eef2ff; padding: 8px; border-radius: 8px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
@@ -162,7 +148,7 @@
             </div>
         </div>
 
-        <!-- ৫. চ্যাট রুম স্ক্রিন -->
+        <!-- ৪. চ্যাট রুম স্ক্রিন -->
         <div id="chatRoomView" class="view">
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px;">
                 <button class="btn" style="width: auto; margin-top:0; padding: 5px 10px; background:#6b7280;" onclick="switchView('dashboardView')"><i class="fa-solid fa-arrow-left"></i></button>
@@ -176,7 +162,7 @@
             </div>
         </div>
 
-        <!-- ৬. সেটিংস স্ক্রিন -->
+        <!-- ৫. সেটিংস স্ক্রিন -->
         <div id="settingsView" class="view">
             <h3 style="font-size: 15px; margin-bottom: 10px;">Settings & Accounts</h3>
             <button class="btn btn-secondary" onclick="logoutUser()" style="background-color: #ef4444; margin-bottom: 8px;">Logout</button>
@@ -200,8 +186,6 @@
         let currentUserId = localStorage.getItem('messenger_current_user_id') || null;
         let activeChatFriendId = null;
         let tempProfilePic = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
-        let generatedOtp = "";
-        let pendingUserData = {};
 
         // ইন্টারনেট কানেকশন চেক ফাংশন
         function checkOnlineStatus() {
@@ -227,22 +211,20 @@
             reader.readAsDataURL(event.target.files[0]);
         }
 
-        function handleSignup(event) {
+        // সরাসরি অ্যাকাউন্ট তৈরি করে ড্যাশবোর্ডে প্রবেশ
+        async function handleSignup(event) {
             event.preventDefault();
             if (!checkOnlineStatus()) {
                 alert('ইন্টারনেট সংযোগ না থাকায় অ্যাকাউন্ট তৈরি করা সম্ভব নয়!');
                 return;
             }
 
-            const name = document.getElementById('fullName').value;
-            const contact = document.getElementById('signupContact').value;
-            const password = document.getElementById('signupPassword').value;
+            const name = document.getElementById('fullName').value.trim();
+            const contact = document.getElementById('signupContact').value.trim();
+            const password = document.getElementById('signupPassword').value.trim();
             const uniqueId = '#' + Math.floor(1000 + Math.random() * 9000);
 
-            generatedOtp = Math.floor(1000 + Math.random() * 9000).toString();
-            document.getElementById('codeDisplayBox').innerText = generatedOtp;
-
-            pendingUserData = {
+            let userData = {
                 id: uniqueId,
                 name: name,
                 contact: contact,
@@ -252,25 +234,12 @@
                 requests: []
             };
 
-            switchView('otpView');
-        }
-
-        async function verifyOtpCode() {
-            if (!checkOnlineStatus()) {
-                alert('ইন্টারনেট সংযোগ বিচ্ছিন্ন রয়েছে!');
-                return;
-            }
-
-            const userOtp = document.getElementById('enteredOtp').value.trim();
-            if(userOtp === generatedOtp) {
-                try {
-                    await db.collection("users").doc(pendingUserData.id).set(pendingUserData);
-                    loginUser(pendingUserData.id);
-                } catch(error) {
-                    alert('ডেটাবেস সেভ করতে সমস্যা হয়েছে: ' + error.message);
-                }
-            } else {
-                alert('ভুল কোড দিয়েছেন! আবার চেষ্টা করুন।');
+            try {
+                await db.collection("users").doc(uniqueId).set(userData);
+                loginUser(uniqueId);
+                alert('অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে!');
+            } catch(error) {
+                alert('ডেটাবেস সেভ করতে সমস্যা হয়েছে: ' + error.message);
             }
         }
 
@@ -297,7 +266,7 @@
                     let data = doc.data();
                     if(data.password === password) {
                         userFound = true;
-                        userId = doc.id; // ডকুমেণ্ট আইডি (যেমন #1023) ব্যবহার করা হলো
+                        userId = doc.id;
                     }
                 });
 
@@ -571,7 +540,7 @@
             if(currentUserId) {
                 switchView('dashboardView');
             } else {
-                switchView('loginView');
+                switchView('signupView');
             }
         }
     </script>
