@@ -104,28 +104,28 @@
         <!-- ১. সাইন আপ স্ক্রিন -->
         <div id="signupView" class="view active">
             <h2 style="text-align:center; margin-bottom: 15px; font-size:18px;">Create Account</h2>
-            <form onsubmit="handleSignup(event)">
+            <div onsubmit="handleSignup(event)">
                 <div class="profile-pic-container" onclick="document.getElementById('profilePicInput').click()">
                     <img id="previewImg" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="Profile">
                 </div>
                 <input type="file" id="profilePicInput" style="display:none" accept="image/*" onchange="previewImage(event)">
                 
-                <div class="input-group"><label>Full Name</label><div class="input-field"><input type="text" id="fullName" placeholder="Enter name" required></div></div>
-                <div class="input-group"><label>Mobile Number or Email</label><div class="input-field"><input type="text" id="signupContact" placeholder="Enter number or email" required></div></div>
-                <div class="input-group"><label>Password</label><div class="input-field"><input type="password" id="signupPassword" placeholder="Password" required></div></div>
-                <button type="submit" class="btn">Create Account</button>
-            </form>
+                <div class="input-group"><label>Full Name</label><div class="input-field"><input type="text" id="fullName" placeholder="Enter name"></div></div>
+                <div class="input-group"><label>Mobile Number or Email</label><div class="input-field"><input type="text" id="signupContact" placeholder="Enter number or email"></div></div>
+                <div class="input-group"><label>Password</label><div class="input-field"><input type="password" id="signupPassword" placeholder="Password" autocomplete="new-password"></div></div>
+                <button type="button" class="btn" onclick="handleSignupBtn()">Create Account</button>
+            </div>
             <div class="switch-text" onclick="switchView('loginView')">Already have an account? <span>Login here</span></div>
         </div>
 
         <!-- ২. লগইন স্ক্রিন -->
         <div id="loginView" class="view">
             <h2 style="text-align:center; margin-bottom: 15px; font-size:18px;">Login to Messenger</h2>
-            <form onsubmit="handleLogin(event)">
-                <div class="input-group"><label>Mobile Number or Email</label><div class="input-field"><input type="text" id="loginContact" placeholder="Enter number or email" required></div></div>
-                <div class="input-group"><label>Password</label><div class="input-field"><input type="password" id="loginPassword" placeholder="Password" required></div></div>
-                <button type="submit" class="btn">Login</button>
-            </form>
+            <div>
+                <div class="input-group"><label>Mobile Number or Email</label><div class="input-field"><input type="text" id="loginContact" placeholder="Enter number or email"></div></div>
+                <div class="input-group"><label>Password</label><div class="input-field"><input type="password" id="loginPassword" placeholder="Password"></div></div>
+                <button type="button" class="btn" onclick="handleLoginBtn()">Login</button>
+            </div>
             <div class="switch-text" onclick="switchView('signupView')">Don't have an account? <span>Create Account</span></div>
         </div>
 
@@ -316,12 +316,17 @@
             }
         }
 
-        // ইনস্ট্যান্ট এবং ফিক্সড একাউন্ট ক্রিয়েশন ফাংশন
-        async function handleSignup(event) {
-            event.preventDefault();
+        // বাটন ক্লিকের মাধ্যমে সরাসরি অ্যাকাউন্ট তৈরি (ফর্ম সাবমিট সমস্যা এড়াতে)
+        async function handleSignupBtn() {
             const name = document.getElementById('fullName').value.trim();
             const contact = document.getElementById('signupContact').value.trim();
             const password = document.getElementById('signupPassword').value.trim();
+
+            if(!name || !contact || !password) {
+                alert('দয়া করে সব ঘরের তথ্য পূরণ করুন!');
+                return;
+            }
+
             const uniqueId = '#' + Math.floor(1000 + Math.random() * 9000);
 
             let userData = {
@@ -336,25 +341,24 @@
             };
 
             try {
-                // ফায়ারবেসে ডেটা সেভ করা নিশ্চিত করা
                 await db.collection("users").doc(uniqueId).set(userData);
                 saveAccountToDevice(uniqueId, name, tempProfilePic);
                 localStorage.setItem('messenger_user_cache_' + uniqueId, JSON.stringify(userData));
-                
-                currentUserId = uniqueId;
-                localStorage.setItem('messenger_current_user_id', currentUserId);
-                
-                startHeartbeat();
-                switchView('dashboardView');
+                loginUser(uniqueId);
+                alert('অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে!');
             } catch(error) {
                 alert('অ্যাকাউন্ট তৈরি করতে সমস্যা হয়েছে: ' + error.message);
             }
         }
 
-        async function handleLogin(event) {
-            event.preventDefault();
+        async function handleLoginBtn() {
             const contact = document.getElementById('loginContact').value.trim();
             const password = document.getElementById('loginPassword').value.trim();
+
+            if(!contact || !password) {
+                alert('দয়া করে নম্বর/ইমেল এবং পাসওয়ার্ড দিন!');
+                return;
+            }
 
             try {
                 let snapshot = await db.collection("users").where("contact", "==", contact).get();
