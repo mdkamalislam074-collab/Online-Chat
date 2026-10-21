@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Messenger - Kamal (Direct Login/Signup)</title>
+    <title>Messenger - Kamal</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -52,11 +52,17 @@
         }
         .profile-pic-container img { width: 100%; height: 100%; object-fit: cover; }
 
+        /* Dynamic Online Status Indicator (Sobuj Bati) */
         .avatar-wrapper { position: relative; display: inline-block; }
         .avatar-sm { 
             width: 40px; height: 40px; border-radius: 50%; object-fit: cover; 
-            border: 2px solid #22c55e; box-shadow: 0 0 6px rgba(34, 197, 94, 0.6);
+            border: 2px solid #e5e7eb; 
         }
+        .status-dot {
+            position: absolute; bottom: 2px; right: 2px; width: 10px; height: 10px;
+            border-radius: 50%; border: 2px solid #fff; display: none;
+        }
+        .status-dot.online { background-color: #22c55e; display: block; box-shadow: 0 0 6px rgba(34, 197, 94, 0.8); }
         
         .nav-tabs { display: flex; gap: 5px; margin-bottom: 15px; background: #f3f4f6; padding: 4px; border-radius: 8px; }
         .nav-tab { flex: 1; padding: 8px; text-align: center; font-size: 12px; font-weight: 600; cursor: pointer; border-radius: 6px; background: transparent; border: none; color: #4b5563; }
@@ -67,9 +73,15 @@
         .user-info-sm { display: flex; align-items: center; gap: 10px; }
         
         .chat-box { flex: 1; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; overflow-y: auto; background-color: #f9fafb; margin-bottom: 10px; max-height: 300px; display: flex; flex-direction: column; gap: 8px; }
-        .message { max-width: 75%; padding: 8px 12px; border-radius: 8px; font-size: 13px; word-break: break-word; }
-        .message.sent { background-color: #3b82f6; color: white; align-self: flex-end; }
-        .message.received { background-color: #e5e7eb; color: #1f2937; align-self: flex-start; }
+        .message-container { display: flex; flex-direction: column; max-width: 75%; }
+        .message-container.sent { align-self: flex-end; }
+        .message-container.received { align-self: flex-start; }
+        
+        .message { padding: 8px 12px; border-radius: 8px; font-size: 13px; word-break: break-word; position: relative; }
+        .message.sent { background-color: #3b82f6; color: white; }
+        .message.received { background-color: #e5e7eb; color: #1f2937; }
+        .delete-btn { font-size: 10px; color: rgba(255,255,255,0.8); background: none; border: none; cursor: pointer; margin-top: 2px; text-align: right; }
+        .message.received .delete-btn { color: #6b7280; }
     </style>
 </head>
 <body>
@@ -80,7 +92,7 @@
             <div class="sub-name">Kamal</div>
         </div>
 
-        <div id="offlineBanner">⚠️ ইন্টারনেটের সাথে সংযোগ নেই! দয়া করে মোবাইল ডাটা বা ওয়াইফাই চালু করুন।</div>
+        <div id="offlineBanner">⚠️ Interenter sathe connection nei!</div>
 
         <!-- 1. Signup View -->
         <div id="signupView" class="view active">
@@ -114,7 +126,10 @@
         <div id="dashboardView" class="view">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; background: #eef2ff; padding: 8px; border-radius: 8px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                    <div class="avatar-wrapper"><img id="myAvatarDisplay" class="avatar-sm" src="" alt=""></div>
+                    <div class="avatar-wrapper">
+                        <img id="myAvatarDisplay" class="avatar-sm" src="" alt="">
+                        <div class="status-dot online"></div>
+                    </div>
                     <div>
                         <div id="myUserName" style="font-size: 13px; font-weight: 600;"></div>
                         <div id="myUserId" style="font-size: 11px; color: #1d4ed8; font-weight: 700;"></div>
@@ -149,7 +164,10 @@
         <div id="chatRoomView" class="view">
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px;">
                 <button class="btn" style="width: auto; margin-top:0; padding: 5px 10px; background:#6b7280;" onclick="switchView('dashboardView')"><i class="fa-solid fa-arrow-left"></i></button>
-                <div class="avatar-wrapper"><img id="chatPartnerAvatar" class="avatar-sm" src="" alt=""></div>
+                <div class="avatar-wrapper">
+                    <img id="chatPartnerAvatar" class="avatar-sm" src="" alt="">
+                    <div id="chatPartnerDot" class="status-dot"></div>
+                </div>
                 <span id="chatPartnerName" style="font-size: 14px; font-weight: 600;"></span>
             </div>
             <div class="chat-box" id="chatBox"></div>
@@ -184,6 +202,7 @@
         let activeChatFriendId = null;
         let tempProfilePic = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
         let unsubscribeMessages = null;
+        let heartbeatInterval = null;
 
         function checkOnlineStatus() {
             const banner = document.getElementById('offlineBanner');
@@ -199,6 +218,30 @@
         window.addEventListener('online', checkOnlineStatus);
         window.addEventListener('offline', checkOnlineStatus);
 
+        // Active Status (Heartbeat) update every 15 seconds
+        function startHeartbeat() {
+            if (!currentUserId) return;
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
+            
+            const updateStatus = async () => {
+                try {
+                    await db.collection("users").doc(currentUserId).update({
+                        lastActive: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                } catch(e) { console.error(e); }
+            };
+            updateStatus();
+            heartbeatInterval = setInterval(updateStatus, 15000);
+        }
+
+        function isUserOnline(lastActiveTimestamp) {
+            if (!lastActiveTimestamp) return false;
+            const lastTime = lastActiveTimestamp.toMillis ? lastActiveTimestamp.toMillis() : new Date(lastActiveTimestamp).getTime();
+            const now = new Date().getTime();
+            // Jodi 30 second er moddhe active thake taholei sobuj bati jolbe
+            return (now - lastTime) < 30000;
+        }
+
         function previewImage(event) {
             const reader = new FileReader();
             reader.onload = function() {
@@ -210,10 +253,8 @@
             }
         }
 
-        // ইনস্ট্যান্ট একাউন্ট তৈরি ও ড্যাশবোর্ডে প্রবেশ
         async function handleSignup(event) {
             event.preventDefault();
-
             const name = document.getElementById('fullName').value.trim();
             const contact = document.getElementById('signupContact').value.trim();
             const password = document.getElementById('signupPassword').value.trim();
@@ -226,21 +267,19 @@
                 password: password,
                 avatar: tempProfilePic,
                 friends: [],
-                requests: []
+                requests: [],
+                lastActive: firebase.firestore.FieldValue.serverTimestamp()
             };
 
-            // লোকাল স্টোরেজে ইনস্ট্যান্ট সেভ করে সাথে সাথে ড্যাশবোর্ডে নিয়ে যাবে (যাতে ফায়ারবেসের লোডিংয়ের জন্য আটকে না থাকে)
             localStorage.setItem('messenger_current_user_id', uniqueId);
-            localStorage.setItem('messenger_user_data', JSON.stringify(userData));
             currentUserId = uniqueId;
             
-            switchView('dashboardView');
-
-            // ব্যাকগ্রাউন্ডে ফায়ারবেসে ডেটা সেভ করার চেষ্টা করবে
             try {
                 await db.collection("users").doc(uniqueId).set(userData);
+                startHeartbeat();
+                switchView('dashboardView');
             } catch(error) {
-                console.error("Background sync error: ", error);
+                alert('Database error: ' + error.message);
             }
         }
 
@@ -252,7 +291,7 @@
             try {
                 let snapshot = await db.collection("users").where("contact", "==", contact).get();
                 if(snapshot.empty) {
-                    alert('এই নম্বর বা ইমেলের কোনো অ্যাকাউন্ট পাওয়া যায়নি!');
+                    alert('Kono account paoa jayni!');
                     return;
                 }
 
@@ -269,23 +308,29 @@
                 if(userFound) {
                     loginUser(userId);
                 } else {
-                    alert('ভুল পাসওয়ার্ড দেওয়া হয়েছে!');
+                    alert('Bhul password!');
                 }
             } catch(error) {
-                alert('লগইন করতে সমস্যা হয়েছে: ' + error.message);
+                alert('Login error: ' + error.message);
             }
         }
 
         function loginUser(id) {
             currentUserId = id;
             localStorage.setItem('messenger_current_user_id', currentUserId);
+            startHeartbeat();
             switchView('dashboardView');
         }
 
-        function logoutUser() {
+        async function logoutUser() {
+            if(currentUserId) {
+                try {
+                    await db.collection("users").doc(currentUserId).update({ lastActive: null });
+                } catch(e) {}
+            }
             localStorage.removeItem('messenger_current_user_id');
-            localStorage.removeItem('messenger_user_data');
             currentUserId = null;
+            if(heartbeatInterval) clearInterval(heartbeatInterval);
             if(unsubscribeMessages) unsubscribeMessages();
             switchView('loginView');
         }
@@ -324,29 +369,20 @@
                 switchView('loginView');
                 return;
             }
-
-            // প্রথমে লোকাল ক্যাশ থেকে দ্রুত নাম ও ছবি দেখিয়ে দিবে
-            let localData = JSON.parse(localStorage.getItem('messenger_user_data'));
-            if(localData && localData.id === currentUserId) {
-                document.getElementById('myUserName').innerText = localData.name;
-                document.getElementById('myUserId').innerText = "ID: " + localData.id;
-                document.getElementById('myAvatarDisplay').src = localData.avatar;
-            }
-
-            // এরপর ফায়ারবেস থেকে লেটেস্ট ডাটা সিঙ্ক করে নিবে
+            startHeartbeat();
             try {
                 let doc = await db.collection("users").doc(currentUserId).get();
-                if(doc.exists) {
-                    let user = doc.data();
-                    document.getElementById('myUserName').innerText = user.name;
-                    document.getElementById('myUserId').innerText = "ID: " + user.id;
-                    document.getElementById('myAvatarDisplay').src = user.avatar;
-                    localStorage.setItem('messenger_user_data', JSON.stringify(user));
+                if(!doc.exists) {
+                    logoutUser();
+                    return;
                 }
+                let user = doc.data();
+                document.getElementById('myUserName').innerText = user.name;
+                document.getElementById('myUserId').innerText = "ID: " + user.id;
+                document.getElementById('myAvatarDisplay').src = user.avatar;
                 loadChatList();
             } catch(e) {
-                console.error("Dashboard load error:", e);
-                loadChatList();
+                console.error(e);
             }
         }
 
@@ -356,10 +392,8 @@
             let userDoc = await db.collection("users").doc(currentUserId).get();
             let user = userDoc.data();
 
-            if(!user) return;
-
             if(query === user.id) {
-                resultDiv.innerHTML = `<p style="font-size:12px; color:red;">এটি আপনার নিজের আইডি!</p>`;
+                resultDiv.innerHTML = `<p style="font-size:12px; color:red;">Eta apnar nijei id!</p>`;
                 return;
             }
 
@@ -378,7 +412,7 @@
                         ${btnHtml}
                     </div>`;
             } else {
-                resultDiv.innerHTML = `<p style="font-size:12px; color:#888;">অনলাইনে এই আইডি পাওয়া যায়নি।</p>`;
+                resultDiv.innerHTML = `<p style="font-size:12px; color:#888;">Online-e ei id paoa jayni.</p>`;
             }
         }
 
@@ -391,22 +425,19 @@
                 if(!targetData.requests.includes(currentUserId)) {
                     targetData.requests.push(currentUserId);
                     await targetRef.update({ requests: targetData.requests });
-                    alert('অনলাইনে ফ্রেন্ড রিকোয়েস্ট পাঠানো হয়েছে!');
-                } else {
-                    alert('ইতিমধ্যেই রিকোয়েস্ট পাঠানো হয়েছে!');
+                    alert('Friend request pathano hoyeche!');
                 }
             }
         }
 
         async function loadRequestsList() {
             let userDoc = await db.collection("users").doc(currentUserId).get();
-            if(!userDoc.exists) return;
             let user = userDoc.data();
             let container = document.getElementById('tabRequests');
             container.innerHTML = '';
 
             if(!user.requests || user.requests.length === 0) {
-                container.innerHTML = `<div style="text-align: center; color: #888; font-size: 12px; margin-top: 20px;">কোনো রিকোয়েস্ট নেই।</div>`;
+                container.innerHTML = `<div style="text-align: center; color: #888; font-size: 12px; margin-top: 20px;">Kono request nei.</div>`;
                 return;
             }
 
@@ -443,20 +474,18 @@
                     await senderRef.update({ friends: sender.friends });
                 }
             }
-
             loadRequestsList();
-            alert('ফ্রেন্ড রিকোয়েস্ট গ্রহণ করা হয়েছে!');
+            alert('Request accept kora hoyeche!');
         }
 
         async function loadFriendsList() {
             let userDoc = await db.collection("users").doc(currentUserId).get();
-            if(!userDoc.exists) return;
             let user = userDoc.data();
             let container = document.getElementById('tabFriends');
             container.innerHTML = '';
 
             if(!user.friends || user.friends.length === 0) {
-                container.innerHTML = `<div style="text-align: center; color: #888; font-size: 12px; margin-top: 20px;">আপনার কোনো ফ্রেন্ড নেই।</div>`;
+                container.innerHTML = `<div style="text-align: center; color: #888; font-size: 12px; margin-top: 20px;">Kono friend nei.</div>`;
                 return;
             }
 
@@ -464,9 +493,16 @@
                 let friendDoc = await db.collection("users").doc(fId).get();
                 if(friendDoc.exists) {
                     let friend = friendDoc.data();
+                    let online = isUserOnline(friend.lastActive);
                     container.innerHTML += `
                         <div class="user-card">
-                            <div class="user-info-sm"><div class="avatar-wrapper"><img src="${friend.avatar}" class="avatar-sm"></div><div><div style="font-size:13px; font-weight:600;">${friend.name}</div><div style="font-size:11px; color:#666;">${friend.id} (Online)</div></div></div>
+                            <div class="user-info-sm">
+                                <div class="avatar-wrapper">
+                                    <img src="${friend.avatar}" class="avatar-sm">
+                                    <div class="status-dot ${online ? 'online' : ''}"></div>
+                                </div>
+                                <div><div style="font-size:13px; font-weight:600;">${friend.name}</div><div style="font-size:11px; color:#666;">${friend.id}</div></div>
+                            </div>
                             <button class="btn" style="width:auto; padding:4px 10px; font-size:11px;" onclick="openChat('${friend.id}')">Chat</button>
                         </div>`;
                 }
@@ -475,13 +511,12 @@
 
         async function loadChatList() {
             let userDoc = await db.collection("users").doc(currentUserId).get();
-            if(!userDoc.exists) return;
             let user = userDoc.data();
             let container = document.getElementById('tabChats');
             container.innerHTML = '';
 
             if(!user || !user.friends || user.friends.length === 0) {
-                container.innerHTML = `<div style="text-align: center; color: #888; font-size: 12px; margin-top: 20px;">চ্যাট শুরু করতে ফ্রেন্ড যোগ করুন।</div>`;
+                container.innerHTML = `<div style="text-align: center; color: #888; font-size: 12px; margin-top: 20px;">Chat shuru korte friend add korun.</div>`;
                 return;
             }
 
@@ -489,9 +524,16 @@
                 let friendDoc = await db.collection("users").doc(fId).get();
                 if(friendDoc.exists) {
                     let friend = friendDoc.data();
+                    let online = isUserOnline(friend.lastActive);
                     container.innerHTML += `
                         <div class="user-card" onclick="openChat('${friend.id}')" style="cursor:pointer;">
-                            <div class="user-info-sm"><div class="avatar-wrapper"><img src="${friend.avatar}" class="avatar-sm"></div><div><div style="font-size:13px; font-weight:600;">${friend.name}</div><div style="font-size:11px; color:#22c55e; font-weight:600;">Active Now</div></div></div>
+                            <div class="user-info-sm">
+                                <div class="avatar-wrapper">
+                                    <img src="${friend.avatar}" class="avatar-sm">
+                                    <div class="status-dot ${online ? 'online' : ''}"></div>
+                                </div>
+                                <div><div style="font-size:13px; font-weight:600;">${friend.name}</div><div style="font-size:11px; color:${online ? '#22c55e' : '#888'}; font-weight:600;">${online ? 'Active Now' : 'Offline'}</div></div>
+                            </div>
                             <i class="fa-solid fa-chevron-right" style="font-size:12px; color:#aaa;"></i>
                         </div>`;
                 }
@@ -504,18 +546,26 @@
             let friend = friendDoc.data();
             document.getElementById('chatPartnerName').innerText = friend.name;
             document.getElementById('chatPartnerAvatar').src = friend.avatar;
+            
+            let dot = document.getElementById('chatPartnerDot');
+            if(isUserOnline(friend.lastActive)) {
+                dot.classList.add('online');
+            } else {
+                dot.classList.remove('online');
+            }
+
             switchView('chatRoomView');
             listenMessages();
         }
 
-        function sendMessage() {
+        async function sendMessage() {
             let input = document.getElementById('messageInput');
             let text = input.value.trim();
             if(!text) return;
 
             let chatKey = [currentUserId, activeChatFriendId].sort().join('_');
             
-            db.collection("chats").doc(chatKey).collection("messages").add({
+            await db.collection("chats").doc(chatKey).collection("messages").add({
                 sender: currentUserId,
                 text: text,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
@@ -541,13 +591,38 @@
                     chatBox.innerHTML = '';
                     snapshot.forEach(doc => {
                         let msg = doc.data();
+                        let msgId = doc.id;
+                        let isMe = (msg.sender === currentUserId);
+
                         let div = document.createElement('div');
-                        div.className = `message ${msg.sender === currentUserId ? 'sent' : 'received'}`;
-                        div.innerText = msg.text;
+                        div.className = `message-container ${isMe ? 'sent' : 'received'}`;
+                        
+                        let deleteBtnHtml = isMe ? `<button class="delete-btn" onclick="deleteMessage('${chatKey}', '${msgId}')"><i class="fa-solid fa-trash"></i> Delete</button>` : '';
+
+                        div.innerHTML = `
+                            <div class="message ${isMe ? 'sent' : 'received'}">
+                                ${escapeHtml(msg.text)}
+                            </div>
+                            ${deleteBtnHtml}
+                        `;
                         chatBox.appendChild(div);
                     });
                     chatBox.scrollTop = chatBox.scrollHeight;
                 });
+        }
+
+        async function deleteMessage(chatKey, msgId) {
+            if(confirm('Apni ki message-ti muchhe felte chan?')) {
+                try {
+                    await db.collection("chats").doc(chatKey).collection("messages").doc(msgId).delete();
+                } catch(e) {
+                    alert('Delete korte somoshya hoyeche: ' + e.message);
+                }
+            }
+        }
+
+        function escapeHtml(text) {
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         }
 
         window.onload = function() {
