@@ -112,7 +112,7 @@
                 
                 <div class="input-group"><label>Full Name</label><div class="input-field"><input type="text" id="fullName" placeholder="Enter name"></div></div>
                 <div class="input-group"><label>Mobile Number or Email</label><div class="input-field"><input type="text" id="signupContact" placeholder="Enter number or email"></div></div>
-                <div class="input-group"><label>Password</label><div class="input-field"><input type="password" id="signupPassword" placeholder="Password" autocomplete="new-password"></div></div>
+                <div class="input-group"><label>Password</label><div class="input-field"><input type="password" id="signupPassword" placeholder="Password"></div></div>
                 <button type="button" class="btn" onclick="handleSignupBtn()">Create Account</button>
             </div>
             <div class="switch-text" onclick="switchView('loginView')">Already have an account? <span>Login here</span></div>
@@ -316,7 +316,6 @@
             }
         }
 
-        // অ্যাকাউন্ট লিস্ট থেকে নির্দিষ্ট আইডি ডিলিট করার ফাংশন
         function removeSavedAccount(id, event) {
             event.stopPropagation();
             if(confirm('এই অ্যাকাউন্টটি কি তালিকা থেকে মুছে ফেলতে চান?')) {
@@ -359,7 +358,6 @@
                 saveAccountToDevice(uniqueId, name, tempProfilePic);
                 localStorage.setItem('messenger_user_cache_' + uniqueId, JSON.stringify(userData));
                 loginUser(uniqueId);
-                alert('অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে!');
             } catch(error) {
                 alert('অ্যাকাউন্ট তৈরি করতে সমস্যা হয়েছে: ' + error.message);
             }
