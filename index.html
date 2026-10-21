@@ -25,6 +25,12 @@
 
         .input-group { margin-bottom: 12px; }
         .input-group label { display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 4px; }
+        
+        /* পাসওয়ার্ড ফিল্ড ও চোখ আইকন স্টাইল */
+        .password-wrapper { position: relative; display: flex; align-items: center; }
+        .password-wrapper input { width: 100%; padding: 10px 40px 10px 12px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 13px; background-color: #f9fafb; outline: none; }
+        .eye-icon { position: absolute; right: 12px; cursor: pointer; color: #6b7280; font-size: 14px; }
+
         .input-field input { width: 100%; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 13px; background-color: #f9fafb; outline: none; }
         .btn { width: 100%; padding: 11px; background-color: #1d4ed8; color: #ffffff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 8px; }
         .btn:hover { background-color: #1e40af; }
@@ -112,7 +118,15 @@
                 
                 <div class="input-group"><label>Full Name</label><div class="input-field"><input type="text" id="fullName" placeholder="Enter name"></div></div>
                 <div class="input-group"><label>Mobile Number or Email</label><div class="input-field"><input type="text" id="signupContact" placeholder="Enter number or email"></div></div>
-                <div class="input-group"><label>Password</label><div class="input-field"><input type="password" id="signupPassword" placeholder="Password"></div></div>
+                
+                <div class="input-group">
+                    <label>Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="signupPassword" placeholder="Password">
+                        <i class="fa-solid fa-eye eye-icon" onclick="togglePassword('signupPassword', this)"></i>
+                    </div>
+                </div>
+
                 <button type="button" class="btn" onclick="handleSignupBtn()">Create Account</button>
             </div>
             <div class="switch-text" onclick="switchView('loginView')">Already have an account? <span>Login here</span></div>
@@ -123,7 +137,15 @@
             <h2 style="text-align:center; margin-bottom: 15px; font-size:18px;">Login to Messenger</h2>
             <div>
                 <div class="input-group"><label>Mobile Number or Email</label><div class="input-field"><input type="text" id="loginContact" placeholder="Enter number or email"></div></div>
-                <div class="input-group"><label>Password</label><div class="input-field"><input type="password" id="loginPassword" placeholder="Password"></div></div>
+                
+                <div class="input-group">
+                    <label>Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="loginPassword" placeholder="Password">
+                        <i class="fa-solid fa-eye eye-icon" onclick="togglePassword('loginPassword', this)"></i>
+                    </div>
+                </div>
+
                 <button type="button" class="btn" onclick="handleLoginBtn()">Login</button>
             </div>
             <div class="switch-text" style="margin-top: 10px;" onclick="switchView('forgotView')"><span style="color: #dc2626;">Forgotten Password?</span></div>
@@ -135,7 +157,15 @@
             <h2 style="text-align:center; margin-bottom: 15px; font-size:18px;">Reset Password</h2>
             <div>
                 <div class="input-group"><label>Enter your Mobile Number or Email</label><div class="input-field"><input type="text" id="forgotContact" placeholder="Enter registered number or email"></div></div>
-                <div class="input-group"><label>New Password</label><div class="input-field"><input type="password" id="newPassword" placeholder="Enter new password"></div></div>
+                
+                <div class="input-group">
+                    <label>New Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="newPassword" placeholder="Enter new password">
+                        <i class="fa-solid fa-eye eye-icon" onclick="togglePassword('newPassword', this)"></i>
+                    </div>
+                </div>
+
                 <button type="button" class="btn" onclick="handleForgotPassword()">Update Password & Login</button>
             </div>
             <div class="switch-text" onclick="switchView('loginView')">Back to <span>Login</span></div>
@@ -237,6 +267,20 @@
         let tempProfilePic = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
         let unsubscribeMessages = null;
         let heartbeatInterval = null;
+
+        // পাসওয়ার্ড দেখানোর বা লুকানোর ফাংশন (চোখ বাটন)
+        function togglePassword(fieldId, icon) {
+            const inputField = document.getElementById(fieldId);
+            if (inputField.type === "password") {
+                inputField.type = "text";
+                icon.classList.remove("fa-eye");
+                icon.classList.add("fa-eye-slash");
+            } else {
+                inputField.type = "password";
+                icon.classList.remove("fa-eye-slash");
+                icon.classList.add("fa-eye");
+            }
+        }
 
         function checkOnlineStatus() {
             const banner = document.getElementById('offlineBanner');
@@ -342,7 +386,6 @@
             }
         }
 
-        // সাইন-আপ বা অ্যাকাউন্ট তৈরির সঠিক ও নিখুঁত ফাংশন
         async function handleSignupBtn() {
             const name = document.getElementById('fullName').value.trim();
             const contact = document.getElementById('signupContact').value.trim();
@@ -354,7 +397,6 @@
             }
 
             try {
-                // চেক করা হচ্ছে ফায়ারবেসে এই ইমেল বা নম্বর দিয়ে অলরেডি কোনো অ্যাকাউন্ট আছে কি না
                 let existingSnapshot = await db.collection("users").get();
                 let foundDocId = null;
                 let foundUserData = null;
@@ -368,15 +410,13 @@
                 });
 
                 if(foundDocId) {
-                    // যদি অলরেডি থাকে, তবে নতুন অ্যাকাউন্ট না বানিয়ে সরাসরি লগইন করিয়ে পুরোনো আইডি ফিরিয়ে আনবে
-                    alert('এই নম্বর বা ইমেলের অ্যাকাউন্টটি আগে থেকেই রয়েছে! আপনার পুরোনো আইডি ফিরিয়ে আনা হলো।');
+                    alert(`এই নম্বর বা ইমেলের অ্যাকাউন্টটি আগে থেকেই রয়েছে! আপনার পুরোনো আইডি ফিরিয়ে আনা হলো।`);
                     saveAccountToDevice(foundDocId, foundUserData.name, foundUserData.avatar);
                     localStorage.setItem('messenger_user_cache_' + foundDocId, JSON.stringify(foundUserData));
                     loginUser(foundDocId);
                     return;
                 }
 
-                // নতুন অ্যাকাউন্ট হলে ইউনিক আইডি তৈরি হবে
                 const uniqueId = '#' + Math.floor(1000 + Math.random() * 9000);
 
                 let userData = {
@@ -400,7 +440,6 @@
             }
         }
 
-        // লগইন করার জন্য সুনির্দিষ্ট ফাংশন
         async function handleLoginBtn() {
             const contact = document.getElementById('loginContact').value.trim();
             const password = document.getElementById('loginPassword').value.trim();
@@ -460,7 +499,7 @@
                 });
 
                 if(!found) {
-                    alert('এই নম্বর বা ইমেল দিয়ে কোনো অ্যাকাউন্ট রেজিস্টर्ड করা নেই!');
+                    alert('এই নম্বর বা ইমেল দিয়ে কোনো অ্যাকাউন্ট রেজিস্টার্ড করা নেই!');
                     return;
                 }
 
