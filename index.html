@@ -280,16 +280,13 @@
             const reader = new FileReader();
             reader.onload = async function() {
                 const newAvatarBase64 = reader.result;
-                
                 document.getElementById('myAvatarDisplay').src = newAvatarBase64;
 
                 try {
-                    // ফায়ারবেস ডেটাবেসে আপডেট করা
                     await db.collection("users").doc(currentUserId).update({
                         avatar: newAvatarBase64
                     });
 
-                    // সেভড অ্যাকাউন্ট লিস্ট আপডেট করা
                     let accounts = JSON.parse(localStorage.getItem('messenger_saved_accounts')) || [];
                     accounts = accounts.map(acc => {
                         if(acc.id === currentUserId) {
@@ -299,7 +296,6 @@
                     });
                     localStorage.setItem('messenger_saved_accounts', JSON.stringify(accounts));
 
-                    // লোকাল ক্যাশ আপডেট করা যাতে রিফ্রেশ করলে ছবি না হারায়
                     let cachedUser = JSON.parse(localStorage.getItem('messenger_user_cache_' + currentUserId)) || {};
                     cachedUser.avatar = newAvatarBase64;
                     localStorage.setItem('messenger_user_cache_' + currentUserId, JSON.stringify(cachedUser));
@@ -320,6 +316,7 @@
             }
         }
 
+        // ইনস্ট্যান্ট এবং ফিক্সড একাউন্ট ক্রিয়েশন ফাংশন
         async function handleSignup(event) {
             event.preventDefault();
             const name = document.getElementById('fullName').value.trim();
@@ -339,13 +336,18 @@
             };
 
             try {
-                // ফায়ারবেসে ইউজার সেভ করা (যাতে অ্যাকাউন্ট হারাবে না)
+                // ফায়ারবেসে ডেটা সেভ করা নিশ্চিত করা
                 await db.collection("users").doc(uniqueId).set(userData);
                 saveAccountToDevice(uniqueId, name, tempProfilePic);
                 localStorage.setItem('messenger_user_cache_' + uniqueId, JSON.stringify(userData));
-                loginUser(uniqueId);
+                
+                currentUserId = uniqueId;
+                localStorage.setItem('messenger_current_user_id', currentUserId);
+                
+                startHeartbeat();
+                switchView('dashboardView');
             } catch(error) {
-                alert('Database error: ' + error.message);
+                alert('অ্যাকাউন্ট তৈরি করতে সমস্যা হয়েছে: ' + error.message);
             }
         }
 
@@ -382,7 +384,7 @@
                     alert('ভুল পাসওয়ার্ড দেওয়া হয়েছে!');
                 }
             } catch(error) {
-                alert('Login error: ' + error.message);
+                alert('লগইন করতে সমস্যা হয়েছে: ' + error.message);
             }
         }
 
@@ -393,7 +395,6 @@
             switchView('dashboardView');
         }
 
-        // লগআউট করলে আইডি ফায়ারবেস থেকে মুছবে না, শুধু বর্তমান ডিভাইস সেশন ক্লিয়ার হবে
         function logoutUser() {
             if(heartbeatInterval) clearInterval(heartbeatInterval);
             if(unsubscribeMessages) unsubscribeMessages();
@@ -501,7 +502,6 @@
             }
             startHeartbeat();
 
-            // লোকাল ক্যাশ থেকে ইনস্ট্যান্ট লোড হবে যাতে রিফ্রেশ করলে ছবি বা নাম চোখের পলকে চলে আসে
             let cachedUser = JSON.parse(localStorage.getItem('messenger_user_cache_' + currentUserId));
             if(cachedUser) {
                 document.getElementById('myUserName').innerText = cachedUser.name;
